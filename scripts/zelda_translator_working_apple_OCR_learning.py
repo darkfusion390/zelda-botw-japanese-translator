@@ -1727,6 +1727,7 @@ def unload_model():
     consuming memory for other processes. Called in the finally block so it runs
     on both clean exit and KeyboardInterrupt.
     """
+    try:
         requests.post(OLLAMA_URL, json={"model": TRANSLATION_MODEL, "keep_alive": 0}, timeout=10)
         print(f"\n🧹  {TRANSLATION_MODEL} unloaded from RAM.")
     except Exception as e:
