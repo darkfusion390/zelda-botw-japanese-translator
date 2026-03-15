@@ -36,7 +36,7 @@ NC='\033[0m' # No Colour
 
 # ── Config — update these to match your setup ──────────────────────────────────
 # Path to your translator script — defaults to same directory as this script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts"
 TRANSLATOR_SCRIPT="$SCRIPT_DIR/zelda_translator_working_nlp.py"
 OLLAMA_MODEL="qwen2.5:7b"
 BOUNDS_FILE="$SCRIPT_DIR/bounds.json"
