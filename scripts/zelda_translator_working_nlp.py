@@ -107,10 +107,11 @@ OLLAMA_URL        = "http://localhost:11434/api/generate"
 TRANSLATION_MODEL = "qwen3:8b"
 IP_WEBCAM_URL     = "http://192.168.1.107:8080/video"
 
+GAME_NAME    = "zelda_botw_"
 LOG_FILE     = "pixel_llm_log.csv"
-VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vocab.json")
-LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lessons.json")
-CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "translation_cache.json")
+VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "vocab.json")
+LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "lessons.json")
+CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "translation_cache.json")
 PREVIEW_PATH = os.path.expanduser("~/Downloads/preprocessed_crop.jpg")
 BOUNDS_FILE  = "bounds.json"
 QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
@@ -124,13 +125,50 @@ BRIGHTNESS_ENABLED   = False
 # TRANSLATE mode: JSON with translation only — romaji is handled by NLP libs
 # so the LLM never needs to produce it. /no_think disables Qwen3's reasoning
 # chain for faster response — without it Qwen3 thinks before replying.
-TRANSLATE_PROMPT = """/no_think
-Translate this Legend of Zelda dialogue to natural English.
-Rules:
-- Preserve the speaker's register (archaic elders, playful fairies, gruff soldiers)
-- Keep sentence fragments as fragments — do not complete them
-- Preserve ellipses (...) as trailing off or hesitation
-- Proper nouns: Link, Zelda, Ganon, Hyrule, Triforce — never translate these
+# Few-shot examples sourced from zeldatranslationproject.wordpress.com —
+# cover all four champion registers plus Zelda's archaic formal speech.
+TRANSLATE_PROMPT = """
+You are translating Legend of Zelda: Breath of the Wild dialogue from Japanese to English.
+
+RULES:
+- Read the register from the text and preserve it exactly:
+  - Archaic grammar (-reshi, -ken, sonata/anata, 授けん) → formal, elevated English
+  - Heavy ellipses (……) with short fragments → keep as fragments, do not complete them
+  - Casual male markers (やれやれ, みてえ, 行くぜ, 相棒, ぜ/ぞ endings) → gruff, direct English
+  - Sharp/clipped speech (じゃないよ, あんた, 言っとくけど) → terse, pointed English
+  - Warm informal (しょうがない, もうちょっと) → gentle, conversational English
+- Never translate proper nouns (character names, place names)
+- 退魔の剣 → "Blade of Evil's Bane"
+- 厄災ガノン → "Calamity Ganon"
+- 神獣 → "Divine Beast"
+- シーカーストーン → "Sheikah Stone"
+- 英傑 → "Champions"
+- 勇者 → "Hero"
+- 赤き月 → "red moon"
+- 御ひい様 → "Princess"
+
+FEW-SHOT EXAMPLES:
+Japanese: 貴方は このハイラルを再び照らす光…今こそ 旅立つ時です…
+English: You are the light that will shine on Hyrule once more… Now is the time to depart on your journey.
+
+Japanese: 地上をさまよう魔物達の魂が 再び肉体を取り戻してしまうのです……
+English: The spirits of all the monsters that wander the earth will end up recovering their bodies.
+
+Japanese: さらなる力が そなたと そして退魔の剣に宿らんことを……
+English: May further power dwell in you, as well as in the Blade of Evil's Bane.
+
+Japanese: やれやれ 前途多難みてえだな
+English: Good grief, she's making it sound like we've got a lot of difficulties ahead.
+
+Japanese: 言っとくけど 君の為じゃないよ？ 僕は ガノンに借りを返したいだけだからね！
+English: Just to be clear, this isn't for you, you got that? I just want to repay my debt to Ganon!
+
+Japanese: 御ひい様にとっちゃ あいつの存在は…… そう コンプレックスの象徴みたいなもんだから
+English: For the princess, that guy's existence is… well, it's like seeing a symbol of her insecurities.
+
+Japanese: 行くぜ 相棒！ さあ こいつを喰らいな ガノン！！
+English: Let's go, buddy! Now, take this, Ganon!!
+
 Respond ONLY with valid JSON, no markdown, no extra text:
 {{"translation": "..."}}
 
@@ -138,14 +176,51 @@ Japanese: {japanese}"""
 
 # LEARN mode: plain English only — no JSON, no romaji.
 # Romaji, word breakdown, and kanji are built locally via fugashi/pykakasi/jamdict.
+# learn_loop polls translate_loop's cache for this translation — this prompt is
+# only hit as a fallback if the cache hasn't populated within TRANSLATION_POLL_TIMEOUT.
 # /no_think keeps latency low while the NLP lesson is being built in parallel.
-LEARN_TRANSLATE_PROMPT = """/no_think
-Translate this Legend of Zelda dialogue to natural English.
-Rules:
-- Preserve the speaker's register (archaic elders, playful fairies, gruff soldiers)
-- Keep sentence fragments as fragments — do not complete them
-- Preserve ellipses (...) as trailing off or hesitation
-- Proper nouns: Link, Zelda, Ganon, Hyrule, Triforce — never translate these
+LEARN_TRANSLATE_PROMPT = """
+You are translating Legend of Zelda: Breath of the Wild dialogue from Japanese to English.
+
+RULES:
+- Read the register from the text and preserve it exactly:
+  - Archaic grammar (-reshi, -ken, sonata/anata, 授けん) → formal, elevated English
+  - Heavy ellipses (……) with short fragments → keep as fragments, do not complete them
+  - Casual male markers (やれやれ, みてえ, 行くぜ, 相棒, ぜ/ぞ endings) → gruff, direct English
+  - Sharp/clipped speech (じゃないよ, あんた, 言っとくけど) → terse, pointed English
+  - Warm informal (しょうがない, もうちょっと) → gentle, conversational English
+- Never translate proper nouns (character names, place names)
+- 退魔の剣 → "Blade of Evil's Bane"
+- 厄災ガノン → "Calamity Ganon"
+- 神獣 → "Divine Beast"
+- シーカーストーン → "Sheikah Stone"
+- 英傑 → "Champions"
+- 勇者 → "Hero"
+- 赤き月 → "red moon"
+- 御ひい様 → "Princess"
+
+FEW-SHOT EXAMPLES:
+Japanese: 貴方は このハイラルを再び照らす光…今こそ 旅立つ時です…
+English: You are the light that will shine on Hyrule once more… Now is the time to depart on your journey.
+
+Japanese: 地上をさまよう魔物達の魂が 再び肉体を取り戻してしまうのです……
+English: The spirits of all the monsters that wander the earth will end up recovering their bodies.
+
+Japanese: さらなる力が そなたと そして退魔の剣に宿らんことを……
+English: May further power dwell in you, as well as in the Blade of Evil's Bane.
+
+Japanese: やれやれ 前途多難みてえだな
+English: Good grief, she's making it sound like we've got a lot of difficulties ahead.
+
+Japanese: 言っとくけど 君の為じゃないよ？ 僕は ガノンに借りを返したいだけだからね！
+English: Just to be clear, this isn't for you, you got that? I just want to repay my debt to Ganon!
+
+Japanese: 御ひい様にとっちゃ あいつの存在は…… そう コンプレックスの象徴みたいなもんだから
+English: For the princess, that guy's existence is… well, it's like seeing a symbol of her insecurities.
+
+Japanese: 行くぜ 相棒！ さあ こいつを喰らいな ガノン！！
+English: Let's go, buddy! Now, take this, Ganon!!
+
 Respond ONLY with the English translation, no extra text.
 
 Japanese: {japanese}"""
@@ -480,7 +555,7 @@ def apple_vision_ocr(frame):
     finally:
         os.unlink(tmp_path)
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
-    print(f"⏱  [ocr] {elapsed_ms}ms  →  {japanese}")
+    # print(f"⏱  [ocr] {elapsed_ms}ms  →  {japanese}")
     return japanese, elapsed_ms
 
 def clean_ocr(text):
@@ -613,8 +688,9 @@ def ollama_call(prompt):
         "model":  TRANSLATION_MODEL,
         "prompt": prompt,
         "stream": False,
+        "think":  False,         # disables Qwen3 reasoning — output goes to "response" not "thinking"
         "options": {
-            "num_ctx": 256,      # was 2048 — dialect sentences are short, you don't need context window
+            "num_ctx": 768,      # bumped from 256 — prompt + few-shots ~350 tokens, needs headroom
             "num_predict": 120,   # cap output length — translations are never that long
             "temperature": 0,
             "num_batch": 256,
@@ -642,11 +718,18 @@ def call_translate(japanese, ocr_ms=0):
     hit = cache_get(japanese)
     if hit:
         romaji, translation = hit
+        if not romaji:
+            # Pre-seeded or legacy entry has blank romaji — generate it now
+            # and write back so subsequent hits are fully populated.
+            romaji = build_romaji_only(japanese)
+            cache_set(japanese, romaji, translation)
+            print(f"🗃  Cache hit (translate, romaji backfilled): {japanese}")
+        else:
+            print(f"🗃  Cache hit (translate): {japanese}")
         state["translate_ms"]     = ocr_ms
         state["translate_ocr_ms"] = ocr_ms
         state["translate_llm_ms"] = 0
         state["translate_cached"] = True
-        print(f"🗃  Cache hit (translate): {japanese}")
         return romaji, translation, 0
 
     # ── Cache miss — NLP romaji then LLM ─────────────────────────────────────
