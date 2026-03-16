@@ -757,9 +757,13 @@ def _to_romaji(text):
     Convert a Japanese string to hepburn romaji using pykakasi.
     Called per-token (not on the whole sentence) so MeCab word boundaries
     are preserved — produces 'wa sono mama' instead of 'hasonomama'.
+    Fullwidth punctuation (？！。、) is normalised to ASCII equivalents so
+    it doesn't appear as wide characters in the romaji display or cache.
     """
     result = _kakasi.convert(text)
-    return " ".join(item["hepburn"] for item in result if item["hepburn"]).strip()
+    romaji = " ".join(item["hepburn"] for item in result if item["hepburn"]).strip()
+    romaji = romaji.replace("？", "?").replace("！", "!").replace("。", ".").replace("、", ",")
+    return romaji
 
 def build_romaji_only(japanese: str) -> str:
     """
