@@ -502,7 +502,12 @@ def ollama_call(prompt):
         "model":  TRANSLATION_MODEL,
         "prompt": prompt,
         "stream": False,
-        "options": {"num_ctx": 2048, "num_batch": 64, "num_keep": 0, "temperature": 0},
+        "options": {
+            "num_ctx": 256,      # was 2048 — dialect sentences are short, you don't need context window
+            "num_predict": 120,   # cap output length — translations are never that long
+            "temperature": 0,
+            "num_batch": 256,
+        }
     }
     r = requests.post(OLLAMA_URL, json=payload, timeout=120)
     r.raise_for_status()
