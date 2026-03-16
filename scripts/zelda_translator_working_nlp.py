@@ -7,6 +7,7 @@ Pipeline:
                         pykakasi for romaji conversion
                         jamdict for kanji/word dictionary lookups
   Step 3 — LLM (lean):  qwen2.5:7b via Ollama — translation ONLY
+                        Skipped entirely on cache hit (write-through JSON cache)
 
 Two UI modes (toggle in header):
   TRANSLATE — Japanese (known words highlighted), romaji, English. Fast.
@@ -109,6 +110,7 @@ IP_WEBCAM_URL     = "http://192.168.1.107:8080/video"
 LOG_FILE     = "pixel_llm_log.csv"
 VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vocab.json")
 LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lessons.json")
+CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "translation_cache.json")
 PREVIEW_PATH = os.path.expanduser("~/Downloads/preprocessed_crop.jpg")
 BOUNDS_FILE  = "bounds.json"
 QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
@@ -158,10 +160,13 @@ state = {
     "translate_ms":        0,
     "translate_ocr_ms":    0,             # OCR portion of last translate
     "translate_llm_ms":    0,             # LLM portion of last translate
+    "translate_cached":    False,         # True = last translate was a cache hit
     "learn_ms":            0,             # updated immediately when learn call returns
-    "learn_ocr_ms":        0,             # OCR portion, updated immediately
+    "learn_ocr_ms":        0,             # OCR portion, passed from latest_stable_jp
     "learn_nlp_ms":        0,             # NLP libs portion (fugashi/pykakasi/jamdict)
-    "learn_llm_ms":        0,             # LLM portion (translation only), updated immediately
+    "learn_poll_ms":       0,             # ms spent polling cache for translate_loop's result
+    "learn_llm_ms":        0,             # LLM ms — only non-zero on poll timeout fallback
+    "learn_cached":        False,         # True = last learn translation was a cache hit
     "_pending_learn_ms":   0,             # kept for ack to use in learn_calls increment
     "_pending_ocr_ms":     0,             # kept for ack to use in learn_calls increment
     "bounds":              None,
@@ -502,6 +507,94 @@ def fuzzy_same(a, b, max_diff=1):
         prev = curr
     return prev[len(b)] <= max_diff
 
+# ── Translation cache ─────────────────────────────────────────────────────────
+# Write-through cache: in-memory dict for fast lookups during a session,
+# backed by translation_cache.json on disk so hits persist across restarts.
+#
+# Key:   _cache_key(japanese) — strips spaces/punctuation, matching the same
+#        normalisation used by the OCR dedup gates. Two strings the dedup gate
+#        treats as identical map to the same cache key, preventing duplicate
+#        entries from minor OCR noise.
+#
+# Value: three fields —
+#   "japanese"    — original raw OCR string, preserved exactly as captured.
+#                   Used for future purposes (training pairs, export) where
+#                   you want the real source text, not the normalised key.
+#   "translation" — English translation produced by the LLM.
+#   "romaji"      — NLP-produced romaji (accurate, MeCab word-boundary aware).
+#
+# Thread safety:
+#   _translate_cache dict: Python GIL makes individual dict reads/writes atomic.
+#   _cache_write_lock: serialises background file writes so two concurrent misses
+#     don't interleave JSON output and corrupt the file.
+#   _cache_pending set: prevents two threads (translate_loop + learn_loop) both
+#     getting a miss on the same new phrase and burning two LLM calls. The first
+#     thread to claim the key calls the LLM; the second gets None from cache_get
+#     and falls through to its own LLM call (benign — last cache_set wins).
+
+_translate_cache: dict[str, dict] = {}
+_cache_write_lock = threading.Lock()
+_cache_pending:   set[str]        = set()   # keys currently being translated
+
+def _cache_key(text: str) -> str:
+    """Stable lookup key — same normalisation as normalize_for_dedup."""
+    return re.sub(r'[\s、。・…]', '', text).strip()
+
+def load_translation_cache():
+    """Load cache from disk into memory at startup. Non-fatal if file missing."""
+    global _translate_cache
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            _translate_cache = json.load(f)
+        print(f"🗃  Translation cache loaded: {len(_translate_cache)} entries")
+    except FileNotFoundError:
+        _translate_cache = {}
+        print("🗃  Translation cache: no file yet, starting fresh")
+    except Exception as e:
+        _translate_cache = {}
+        print(f"⚠️  Translation cache load failed: {e} — starting fresh")
+
+def _persist_cache():
+    """Write in-memory cache to disk. Always called in a background thread."""
+    with _cache_write_lock:
+        try:
+            with open(CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump(_translate_cache, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"⚠️  Cache write failed: {e}")
+
+def cache_get(japanese: str):
+    """Return (romaji, translation) on hit, or None on miss.
+    Also returns None if key is pending (being translated by another thread)."""
+    key = _cache_key(japanese)
+    if key in _cache_pending:
+        return None
+    entry = _translate_cache.get(key)
+    if entry:
+        return entry.get("romaji", ""), entry.get("translation", "")
+    return None
+
+def cache_set(japanese: str, romaji: str, translation: str):
+    """Store entry in memory, clear pending flag, schedule async disk write.
+    'japanese' is the original raw OCR string — stored as-is for future use."""
+    key = _cache_key(japanese)
+    _translate_cache[key] = {
+        "japanese":    japanese,       # original OCR output, not normalised
+        "translation": translation,
+        "romaji":      romaji,
+    }
+    _cache_pending.discard(key)
+    threading.Thread(target=_persist_cache, daemon=True).start()
+
+def cache_claim(japanese: str) -> bool:
+    """Mark key as in-flight before an LLM call on a cache miss.
+    Returns True if this thread claimed it, False if already claimed."""
+    key = _cache_key(japanese)
+    if key in _cache_pending:
+        return False
+    _cache_pending.add(key)
+    return True
+
 # ── LLM calls ─────────────────────────────────────────────────────────────────
 
 def ollama_call(prompt):
@@ -526,18 +619,45 @@ def ollama_call(prompt):
     return response, elapsed_ms
 
 def call_translate(japanese, ocr_ms=0):
-    """Fast path — LLM returns only romaji + translation as JSON."""
+    """Fast path translation.
+    Romaji is always NLP-produced (build_romaji_only) — never from the LLM.
+    Cache checked before NLP so a hit skips both the LLM and romaji work entirely.
+    On a hit the cached romaji is returned directly (already NLP-quality from when
+    it was first stored). On a miss, build_romaji_only runs then LLM is called.
+    cache_claim() marks the key in-flight so learn_loop won't burn a second LLM call.
+    state['translate_cached'] is set so the UI can display a cache indicator."""
+    state["translate_calls"] += 1
+
+    # ── Cache hit — skip both NLP romaji and LLM entirely ────────────────────
+    hit = cache_get(japanese)
+    if hit:
+        romaji, translation = hit
+        state["translate_ms"]     = ocr_ms
+        state["translate_ocr_ms"] = ocr_ms
+        state["translate_llm_ms"] = 0
+        state["translate_cached"] = True
+        print(f"🗃  Cache hit (translate): {japanese}")
+        return romaji, translation, 0
+
+    # ── Cache miss — NLP romaji then LLM ─────────────────────────────────────
+    romaji = build_romaji_only(japanese)
+    cache_claim(japanese)
     raw, elapsed_ms = ollama_call(TRANSLATE_PROMPT.format(japanese=japanese))
-    state["translate_calls"]  += 1
-    state["translate_ms"]      = ocr_ms + elapsed_ms
-    state["translate_ocr_ms"]  = ocr_ms
-    state["translate_llm_ms"]  = elapsed_ms
+    state["translate_ms"]     = ocr_ms + elapsed_ms
+    state["translate_ocr_ms"] = ocr_ms
+    state["translate_llm_ms"] = elapsed_ms
+    state["translate_cached"] = False
+
+    # LLM still returns JSON — we only use the translation field, not its romaji
     try:
         clean = raw.replace("```json", "").replace("```", "").strip()
-        data = json.loads(clean)
-        return data.get("romaji", ""), data.get("translation", raw), elapsed_ms
+        data  = json.loads(clean)
+        translation = data.get("translation", raw)
     except Exception:
-        return "", raw, elapsed_ms
+        translation = raw
+
+    cache_set(japanese, romaji, translation)
+    return romaji, translation, elapsed_ms
 
 def _to_romaji(text):
     """
@@ -547,6 +667,31 @@ def _to_romaji(text):
     """
     result = _kakasi.convert(text)
     return " ".join(item["hepburn"] for item in result if item["hepburn"]).strip()
+
+def build_romaji_only(japanese: str) -> str:
+    """
+    Fast NLP-only romaji for TRANSLATE mode — no jamdict lookups, no breakdown.
+    Uses MeCab for per-token kana readings then converts to hepburn romaji via
+    pykakasi. Same quality as build_lesson_nlp romaji but skips the expensive
+    meaning/kanji lookups that TRANSLATE mode doesn't display.
+    Falls back to direct pykakasi conversion if MeCab fails.
+    """
+    try:
+        parts = []
+        for word in _tagger(japanese):
+            surface = word.surface
+            if not surface.strip():
+                continue
+            try:
+                reading_kana = word.feature.kana or surface
+            except AttributeError:
+                reading_kana = surface
+            r = _to_romaji(reading_kana)
+            if r:
+                parts.append(r)
+        return " ".join(parts).strip()
+    except Exception:
+        return _to_romaji(japanese)
 
 def _gloss_text(gloss_item):
     """Safely extract text from a jamdict gloss — handles str or object."""
@@ -731,30 +876,58 @@ def build_lesson_nlp(japanese):
     romaji = " ".join(romaji_parts)
     return romaji, breakdown, kanji_list
 
-def call_learn(japanese, vocab):
+def call_learn(japanese, vocab, ocr_ms=0):
     """
     Build a full lesson for LEARN mode using the hybrid NLP + LLM approach.
     Step 1 (NLP, ~50-200ms): build_lesson_nlp handles romaji, word breakdown,
       and kanji entirely locally — deterministic, fast, accurate.
-    Step 2 (LLM, ~2-5s): a minimal translation-only prompt hits Ollama.
-      Output token count is ~15-20 words vs ~400-500 for the old full LEARN prompt,
-      making this roughly 10x faster than the original LLM-only approach.
-    Timing is tracked separately for each step so the metrics panel shows
-    nlp and llm times independently.
+    Step 2 (translation): cache polled first. translate_loop owns LLM translation
+      and will almost always have written the result to cache by the time NLP
+      finishes (or be in-flight via _cache_pending). learn_loop polls the cache
+      for up to TRANSLATION_POLL_TIMEOUT seconds rather than firing its own LLM
+      call, eliminating the redundant duplicate translation. Falls back to its
+      own LLM call if the cache hasn't populated within the timeout — keeps
+      learn_loop resilient if translate_loop is behind or errors out.
+    Metrics: nlp_ms, poll_ms (time spent waiting for cache), llm_ms (fallback only).
     """
+    TRANSLATION_POLL_TIMEOUT  = 5.0    # seconds to wait for translate_loop's result
+    TRANSLATION_POLL_INTERVAL = 0.05   # seconds between cache polls
+
     # Step 1: NLP-based analysis (instant, deterministic)
     t_nlp = time.perf_counter()
     romaji, breakdown, kanji_list = build_lesson_nlp(japanese)
     nlp_ms = round((time.perf_counter() - t_nlp) * 1000)
 
-    # Step 2: LLM for translation only
-    prompt = LEARN_TRANSLATE_PROMPT.format(japanese=japanese)
-    raw, llm_ms = ollama_call(prompt)
-    translation = raw.strip()
+    # Step 2: poll cache for translate_loop's translation.
+    # Bypass cache_get's pending check — we WANT to wait for an in-flight key.
+    translation = None
+    llm_ms      = 0
+    t_poll      = time.perf_counter()
+    deadline    = t_poll + TRANSLATION_POLL_TIMEOUT
 
-    state["_pending_learn_ms"] = nlp_ms + llm_ms
-    state["_pending_ocr_ms"]   = 0
+    while time.perf_counter() < deadline:
+        hit = _translate_cache.get(_cache_key(japanese))
+        if hit:
+            translation = hit.get("translation", "")
+            poll_ms = round((time.perf_counter() - t_poll) * 1000)
+            state["learn_cached"] = True
+            print(f"🗃  Cache hit (learn, polled {poll_ms}ms): {japanese}")
+            break
+        time.sleep(TRANSLATION_POLL_INTERVAL)
+
+    if translation is None:
+        poll_ms = round((time.perf_counter() - t_poll) * 1000)
+        print(f"⏱  Learn poll timeout ({poll_ms}ms) for: {japanese} — falling back to LLM")
+        cache_claim(japanese)
+        raw, llm_ms = ollama_call(LEARN_TRANSLATE_PROMPT.format(japanese=japanese))
+        translation = raw.strip()
+        state["learn_cached"] = False
+        cache_set(japanese, romaji, translation)
+
+    state["_pending_learn_ms"] = nlp_ms + poll_ms + llm_ms
+    state["_pending_ocr_ms"]   = ocr_ms
     state["learn_nlp_ms"]      = nlp_ms
+    state["learn_poll_ms"]     = poll_ms
 
     lesson = {
         "romaji":       romaji,
@@ -763,7 +936,7 @@ def call_learn(japanese, vocab):
         "grammar_note": "",
         "kanji":        kanji_list,
     }
-    print(f"📖  Lesson built — NLP {nlp_ms}ms + LLM {llm_ms}ms")
+    print(f"📖  Lesson built — NLP {nlp_ms}ms + poll {poll_ms}ms + LLM {llm_ms}ms")
     return lesson, llm_ms
 
 # ── Preprocessing ─────────────────────────────────────────────────────────────
@@ -1025,7 +1198,7 @@ def learn_loop():
         try:
             state["learn_status"] = "Generating lesson..."
             vocab = load_vocab()
-            lesson, llm_ms = call_learn(jp, vocab)
+            lesson, llm_ms = call_learn(jp, vocab, ocr_ms)
             # Enrich each breakdown item and kanji with familiarity level from vocab.
             # This is done after call_learn (not inside it) so the lesson object
             # always reflects the current state of vocab at the moment it's displayed,
@@ -1043,11 +1216,11 @@ def learn_loop():
             state["lesson"]             = lesson
             state["lesson_pending_ack"] = True
             state["lesson_japanese"]    = jp
-            state["_pending_ocr_ms"]    = ocr_ms
             state["learn_ocr_ms"]       = ocr_ms
-            state["learn_nlp_ms"]       = state.get("learn_nlp_ms", 0)  # already set in call_learn
+            state["learn_nlp_ms"]       = state.get("learn_nlp_ms", 0)   # set inside call_learn
+            state["learn_poll_ms"]      = state.get("learn_poll_ms", 0)  # set inside call_learn
             state["learn_llm_ms"]       = llm_ms
-            state["learn_ms"]           = ocr_ms + state["learn_nlp_ms"] + llm_ms
+            state["learn_ms"]           = ocr_ms + state["learn_nlp_ms"] + state["learn_poll_ms"] + llm_ms
             state["learn_status"]       = "Lesson ready — acknowledge to continue"
             print(f"📖  Lesson generated for: {jp}")
         except Exception as e:
@@ -1445,6 +1618,10 @@ HTML = """<!DOCTYPE html>
       <span class="metric-value green" id="learn-nlp-ms">—</span>
     </div>
     <div class="metric-row metric-sub-row">
+      <span class="metric-label">↳ poll</span>
+      <span class="metric-value green" id="learn-poll-ms">—</span>
+    </div>
+    <div class="metric-row metric-sub-row">
       <span class="metric-label">↳ llm</span>
       <span class="metric-value green" id="learn-llm-ms">—</span>
     </div>
@@ -1820,11 +1997,12 @@ async function poll() {
     // Metrics
     document.getElementById('translate-calls').textContent  = d.translate_calls || 0;
     document.getElementById('translate-ocr-ms').textContent = d.translate_ocr_ms ? d.translate_ocr_ms + 'ms' : '—';
-    document.getElementById('translate-llm-ms').textContent = d.translate_llm_ms ? d.translate_llm_ms + 'ms' : '—';
+    document.getElementById('translate-llm-ms').textContent = d.translate_cached ? '⚡ cached' : (d.translate_llm_ms ? d.translate_llm_ms + 'ms' : '—');
     document.getElementById('learn-calls').textContent      = d.learn_calls || 0;
     document.getElementById('learn-ocr-ms').textContent     = d.learn_ocr_ms ? d.learn_ocr_ms + 'ms' : '—';
     document.getElementById('learn-nlp-ms').textContent     = d.learn_nlp_ms ? d.learn_nlp_ms + 'ms' : '—';
-    document.getElementById('learn-llm-ms').textContent     = d.learn_llm_ms ? d.learn_llm_ms + 'ms' : '—';
+    document.getElementById('learn-poll-ms').textContent    = d.learn_poll_ms != null ? d.learn_poll_ms + 'ms' : '—';
+    document.getElementById('learn-llm-ms').textContent     = d.learn_llm_ms ? d.learn_llm_ms + 'ms ⚠️' : '—';
     const since   = d.lessons_since_quiz ?? 0;
     const until   = Math.max(0, QUIZ_EVERY - since);
     const untilEl = document.getElementById('lessons-until-quiz');
@@ -2015,8 +2193,10 @@ if __name__ == '__main__':
     print(f"📱  Camera:  {IP_WEBCAM_URL}")
     print(f"🤖  Model:   {TRANSLATION_MODEL}")
     print(f"📚  Vocab:   {VOCAB_FILE}")
+    print(f"🗃  Cache:   {CACHE_FILE}")
     print(f"🌐  UI:      http://localhost:5002")
     print("─" * 40)
+    load_translation_cache()
     threading.Thread(target=capture_loop, daemon=True).start()
     try:
         app.run(host='0.0.0.0', port=5002, debug=False)
