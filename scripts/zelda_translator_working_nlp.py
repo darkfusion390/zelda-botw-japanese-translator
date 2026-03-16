@@ -121,22 +121,32 @@ BRIGHTNESS_GATE_LOW  = 10.0
 BRIGHTNESS_ENABLED   = False
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
-# TRANSLATE mode: same as the original — LLM returns romaji + translation as JSON.
-TRANSLATE_PROMPT = """Translate this Japanese video game dialogue to natural English.
+# TRANSLATE mode: JSON with translation only — romaji is handled by NLP libs
+# so the LLM never needs to produce it. /no_think disables Qwen3's reasoning
+# chain for faster response — without it Qwen3 thinks before replying.
+TRANSLATE_PROMPT = """/no_think
+Translate this Legend of Zelda dialogue to natural English.
+Rules:
+- Preserve the speaker's register (archaic elders, playful fairies, gruff soldiers)
+- Keep sentence fragments as fragments — do not complete them
+- Preserve ellipses (...) as trailing off or hesitation
+- Proper nouns: Link, Zelda, Ganon, Hyrule, Triforce — never translate these
 Respond ONLY with valid JSON, no markdown, no extra text:
-{{"romaji": "...", "translation": "..."}}
+{{"translation": "..."}}
 
 Japanese: {japanese}"""
 
-# LEARN mode: LLM is used for translation only.
+# LEARN mode: plain English only — no JSON, no romaji.
 # Romaji, word breakdown, and kanji are built locally via fugashi/pykakasi/jamdict.
-# This replaces the full LEARN_PROMPT from the original version which asked the
-# LLM to do everything. The 7b model was unreliable for linguistic detail —
-# wrong romaji, missed kanji, wrong grammatical roles. The libraries handle
-# these deterministically and nearly instantly, leaving the LLM to do only
-# what it's actually good at: producing natural English translations.
-LEARN_TRANSLATE_PROMPT = """Translate this Japanese video game dialogue to natural English.
-Respond ONLY with the English translation, no extra text, no JSON.
+# /no_think keeps latency low while the NLP lesson is being built in parallel.
+LEARN_TRANSLATE_PROMPT = """/no_think
+Translate this Legend of Zelda dialogue to natural English.
+Rules:
+- Preserve the speaker's register (archaic elders, playful fairies, gruff soldiers)
+- Keep sentence fragments as fragments — do not complete them
+- Preserve ellipses (...) as trailing off or hesitation
+- Proper nouns: Link, Zelda, Ganon, Hyrule, Triforce — never translate these
+Respond ONLY with the English translation, no extra text.
 
 Japanese: {japanese}"""
 
