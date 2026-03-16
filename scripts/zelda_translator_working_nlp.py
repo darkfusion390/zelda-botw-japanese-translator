@@ -104,7 +104,7 @@ _SKIP_VOCAB = {
 # version — all linguistic analysis (romaji, breakdown, kanji) is handled by
 # the NLP libraries above, which are faster and more accurate than the 7b model.
 OLLAMA_URL        = "http://localhost:11434/api/generate"
-TRANSLATION_MODEL = "qwen2.5:7b"
+TRANSLATION_MODEL = "qwen3:8b"
 IP_WEBCAM_URL     = "http://192.168.1.107:8080/video"
 
 LOG_FILE     = "pixel_llm_log.csv"
