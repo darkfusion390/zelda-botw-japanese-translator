@@ -1,42 +1,58 @@
 """
 zelda_ocr_compare.py
 --------------------
-Compares six OCR pipelines across two engines (Apple Vision, PaddleOCR),
-each paired with three post-OCR furigana filtering strategies:
+Compares four OCR pipelines across two engines (Apple Vision, PaddleOCR),
+each with and without the reading-match furigana output filter:
 
   Apple Vision:
     1. av_rowdensity    — row-density image preprocessing (baseline)
     2. av_reading_match — row-density preproc + reading-match output filter
-    3. av_vpos          — row-density preproc + vertical-position-gate filter
 
   PaddleOCR:
-    4. paddle_rowdensity    — row-density image preprocessing (baseline)
-    5. paddle_reading_match — row-density preproc + reading-match output filter
-    6. paddle_vpos          — row-density preproc + vertical-position-gate filter
+    3. paddle_rowdensity    — row-density image preprocessing (baseline)
+    4. paddle_reading_match — row-density preproc + reading-match output filter
 
-All six pipelines share the same row-density preprocessing. The two new
-filters operate purely on OCR output (text strings + bounding boxes) with
-no changes to the image sent to the OCR engine.
+Why vpos was removed:
+  After inspecting the test images, furigana in all test games sits within
+  the vertical extent of the main text line (directly above its kanji, inside
+  the same crop row), not in a separate band above the dialogue box. A
+  vertical-position gate based on image height or median top-edge cannot
+  distinguish furigana boxes from line-1 main-text boxes because they share
+  the same y-region. vpos was removed to avoid first-line content drops.
 
-Reading-match filter:
-  Uses MeCab (fugashi) to segment the full OCR output and predict the kana
-  reading of every kanji-containing token. Any detected text string that is
-  pure kana AND exactly matches one of those predicted readings is dropped
-  as furigana. Catches e.g. しょくさい (reading of 食材) while protecting
-  ゆっくり (not a kanji reading) and grammatical particles.
+Reading-match filter (two-stage):
+  Stage 1 — MeCab token readings (fugashi):
+    Segments the full OCR text with MeCab and collects the predicted kana
+    reading of every kanji-containing token. Handles multi-kanji compound
+    words correctly (e.g. 食材 -> しょくざい, 栄養 -> えいよう).
 
-Vertical-position gate:
-  Computes the median top-edge y-coordinate of all detected boxes. Any box
-  whose top edge sits more than VPOS_THRESHOLD (15%) of the image height
-  above the median is dropped as furigana. Furigana always floats above the
-  main text line regardless of glyph size or content.
+  Stage 2 — Per-character jamdict readings:
+    For every individual kanji character in the OCR text, looks up its
+    on'yomi and kun'yomi readings in JMdict. This catches furigana for kanji
+    inside compound verbs that MeCab segments as a unit:
+      e.g. 見つかる -> MeCab reading みつかる; the standalone furigana み
+           (above 見) would not match the compound reading without this stage.
+           jamdict adds み (kun'yomi of 見) to the candidate set.
+    Also ensures single-kanji furigana (び above 火, や above 焼, い above 行,
+    ぬし above 主, えら above 選) are always caught.
+    Okurigana suffixes are stripped (み.る -> み, い.く -> い).
+
+  A pure-kana OCR string is dropped as furigana if it exactly matches any
+  reading collected by either stage (after katakana->hiragana normalisation).
+
+  Protected by design:
+    - Multi-kana content words (ゆっくり, もしかして, いたずら) — not kanji readings
+    - Grammar particles (は, が, の) — too short or not in reading sets
+    - Kana embedded inside kanji+kana OCR strings — never candidates since the
+      whole mixed string is not pure kana
 
 Dependencies:
     PaddleOCR:  pip install paddleocr paddlepaddle
     Apple OCR:  pip install pyobjc-framework-Vision pyobjc-framework-Quartz
-                (macOS only)
+                (macOS only — skipped automatically on other platforms)
     MeCab/NLP:  pip install fugashi unidic-lite
-                (reading-match pipelines only; others work without it)
+    JMdict:     pip install jamdict jamdict-data
+                (reading-match pipelines degrade gracefully if either missing)
 
 Usage:
     python zelda_ocr_compare.py path/to/dialogue.png
@@ -62,11 +78,13 @@ from PIL import Image
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# NLP — MeCab initialisation (lazy, graceful fallback)
+# NLP — MeCab + jamdict initialisation (lazy, graceful fallback)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _tagger = None
 _tagger_loaded = False
+_jmd = None
+_jmd_loaded = False
 
 
 def _get_tagger():
@@ -78,11 +96,27 @@ def _get_tagger():
     try:
         import fugashi
         _tagger = fugashi.Tagger()
-        print("  ✅ fugashi (MeCab) ready — reading-match pipelines enabled")
+        print("  ✅ fugashi (MeCab) ready")
     except ImportError:
         _tagger = None
-        print("  ⚠️  fugashi not installed — reading-match pipelines will skip the filter")
+        print("  ⚠️  fugashi not installed — reading-match will skip MeCab stage")
     return _tagger
+
+
+def _get_jmd():
+    """Return a Jamdict instance, or None if jamdict is not installed."""
+    global _jmd, _jmd_loaded
+    if _jmd_loaded:
+        return _jmd
+    _jmd_loaded = True
+    try:
+        from jamdict import Jamdict
+        _jmd = Jamdict()
+        print("  ✅ jamdict ready — per-character kanji readings enabled")
+    except ImportError:
+        _jmd = None
+        print("  ⚠️  jamdict not installed — reading-match will skip per-character stage")
+    return _jmd
 
 
 def _is_pure_kana(text: str) -> bool:
@@ -110,56 +144,97 @@ def _kata_to_hira(text: str) -> str:
     )
 
 
-def filter_reading_match(texts: list, tagger) -> list:
+def _collect_kanji_readings(text: str, tagger, jmd) -> set:
+    """
+    Collect all kana readings of kanji that appear in the given text string.
+
+    Stage 1 — MeCab token readings:
+      For each MeCab token that contains kanji, add its predicted kana reading
+      (both katakana and hiragana forms) to the candidate set.
+
+    Stage 2 — Per-character jamdict readings:
+      For each individual kanji character in the text, look up all on'yomi and
+      kun'yomi readings in JMdict. Strip okurigana suffixes (e.g. み.る -> み)
+      so that the standalone furigana character matches.
+
+    Returns a set of hiragana strings that, if found as a standalone pure-kana
+    OCR box, should be treated as furigana and dropped.
+    """
+    readings: set = set()
+
+    # ── Stage 1: MeCab compound-word readings ────────────────────────────────
+    if tagger:
+        try:
+            for word in tagger(text):
+                if _has_kanji(word.surface):
+                    try:
+                        kana = word.feature.kana
+                    except AttributeError:
+                        kana = None
+                    if kana:
+                        readings.add(_kata_to_hira(kana))
+                        readings.add(kana)
+        except Exception:
+            pass
+
+    # ── Stage 2: per-character on'yomi / kun'yomi via jamdict ────────────────
+    if jmd:
+        seen_chars: set = set()
+        for ch in text:
+            if '\u4e00' <= ch <= '\u9fff' and ch not in seen_chars:
+                seen_chars.add(ch)
+                try:
+                    result = jmd.lookup(ch)
+                    for char_entry in (result.chars or []):
+                        for rm_group in (char_entry.rm_groups or []):
+                            for reading in (rm_group.readings or []):
+                                r_val = getattr(reading, 'value', '') or ''
+                                if not r_val:
+                                    continue
+                                # Strip okurigana (み.る -> み, い.く -> い)
+                                # and irregular reading markers (む―す -> む)
+                                r_base = r_val.split('.')[0].split('―')[0].strip()
+                                if r_base and _is_pure_kana(r_base):
+                                    readings.add(_kata_to_hira(r_base))
+                except Exception:
+                    pass
+
+    return readings
+
+
+def filter_reading_match(texts: list, tagger, jmd) -> list:
     """
     Remove furigana strings from a list of OCR text tokens using reading-match.
 
-    Joins all texts, segments with MeCab, and collects the predicted kana
-    readings of every kanji-containing token. Any text item that is pure kana
-    and exactly matches one of those readings (after katakana->hiragana
-    normalisation) is dropped as furigana.
+    Collects kana readings of all kanji in the joined OCR text (MeCab + jamdict),
+    then drops any token that is pure kana and exactly matches one of those
+    readings (after katakana->hiragana normalisation).
 
-    Protected by design:
-      - Content kana words like ゆっくり, もしかして — not kanji readings
-      - Grammar particles は, が, の, etc. — too short to match a reading
-      - Contracted small kana ゃ in じゃ — single char, not a full reading
+    The full joined text is used for reading collection so MeCab has sentence
+    context for accurate compound-word segmentation. Drop decisions are made
+    per-token.
     """
-    if not tagger or not texts:
+    if (not tagger and not jmd) or not texts:
         return texts
 
     joined = " ".join(texts)
+    readings = _collect_kanji_readings(joined, tagger, jmd)
 
-    # Collect predicted kana readings of kanji tokens (both katakana and hiragana forms)
-    kanji_readings: set = set()
-    try:
-        for word in tagger(joined):
-            if _has_kanji(word.surface):
-                try:
-                    kana = word.feature.kana
-                except AttributeError:
-                    kana = None
-                if kana:
-                    kanji_readings.add(kana)
-                    kanji_readings.add(_kata_to_hira(kana))
-    except Exception:
-        return texts
-
-    if not kanji_readings:
+    if not readings:
         return texts
 
     kept = []
     for t in texts:
         t_stripped = t.strip()
         t_hira = _kata_to_hira(t_stripped)
-        if _is_pure_kana(t_stripped) and t_hira in kanji_readings:
-            # Pure kana that exactly matches a kanji reading — drop as furigana
-            continue
+        if _is_pure_kana(t_stripped) and t_hira in readings:
+            continue  # pure kana matching a kanji reading -> furigana, drop
         kept.append(t)
     return kept
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PREPROCESSING (shared by all six pipelines)
+# PREPROCESSING (shared by all four pipelines)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def preprocess_row_density(crop_bgr):
@@ -210,7 +285,7 @@ def _fix_exact(text: str) -> str:
 
 def _fix_hira_before_kata_N(text: str) -> str:
     """Convert hiragana immediately before katakana N to its katakana equivalent.
-    N only exists in katakana; hiragana before it is a recognition error.
+    N only exists in katakana; any hiragana before it is a recognition error.
     Fixes e.g. riNgo -> RiNgo."""
     result = list(text)
     for i in range(len(result) - 1):
@@ -234,21 +309,14 @@ def _postprocess_paddle(pairs: list) -> list:
 # OCR ENGINES
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Vertical position gate: drop boxes whose top edge is more than this fraction
-# of image height above the median top edge of all surviving boxes.
-VPOS_THRESHOLD = 0.15
-
-
 def _paddle_ocr_on_frame(bgr_frame, ocr_instance,
-                          filter_mode: str = "baseline",
-                          tagger=None):
+                          use_reading_match: bool = False,
+                          tagger=None, jmd=None):
     """
     Run PaddleOCR on a preprocessed BGR frame.
 
-    filter_mode:
-      "baseline"      — bimodal gap split + isolation guard (original)
-      "reading_match" — baseline then reading-match filter
-      "vpos"          — baseline then vertical-position gate
+    use_reading_match: if True, applies the reading-match filter after the
+      baseline bimodal gap split + isolation guard + postprocessing.
 
     Returns (japanese_text, elapsed_ms).
     """
@@ -263,8 +331,7 @@ def _paddle_ocr_on_frame(bgr_frame, ocr_instance,
     finally:
         os.unlink(tmp_path)
 
-    all_texts, all_scores, all_heights, all_centres, all_tops = \
-        [], [], [], [], []
+    all_texts, all_scores, all_heights, all_centres = [], [], [], []
     for res in (result or []):
         polys = res.get("rec_polys") or res.get("rec_boxes") or []
         t_list = res.get("rec_texts") or []
@@ -277,16 +344,14 @@ def _paddle_ocr_on_frame(bgr_frame, ocr_instance,
             all_scores.append(s)
             all_heights.append(y_max - y_min)
             all_centres.append((y_min + y_max) / 2.0)
-            all_tops.append(y_min)
 
     # Sort top-to-bottom by vertical centre
     if all_texts:
         combined = sorted(
-            zip(all_texts, all_scores, all_heights, all_centres, all_tops),
+            zip(all_texts, all_scores, all_heights, all_centres),
             key=lambda x: x[3]
         )
-        all_texts, all_scores, all_heights, all_centres, all_tops = \
-            map(list, zip(*combined))
+        all_texts, all_scores, all_heights, all_centres = map(list, zip(*combined))
 
     # ── Baseline: bimodal gap split + isolation guard ─────────────────────────
     if all_heights:
@@ -301,66 +366,41 @@ def _paddle_ocr_on_frame(bgr_frame, ocr_instance,
         median_h = float(np.median(all_heights))
         large_centres = [c for h, c in zip(all_heights, all_centres)
                          if h >= furi_thresh]
-
-        filtered_with_tops = []
-        for t, s, h, cy, top in zip(
-                all_texts, all_scores, all_heights, all_centres, all_tops):
+        filtered = []
+        for t, s, h, cy in zip(all_texts, all_scores, all_heights, all_centres):
             if h >= furi_thresh:
-                filtered_with_tops.append((t, s, top))
+                filtered.append((t, s))
             elif large_centres and any(
                     abs(cy - lc) < median_h * 1.5 for lc in large_centres):
-                filtered_with_tops.append((t, s, top))
-
-        texts  = [t for t, _, _ in filtered_with_tops]
-        scores = [s for _, s, _ in filtered_with_tops]
-        tops   = [top for _, _, top in filtered_with_tops]
+                filtered.append((t, s))
+        texts  = [t for t, _ in filtered]
+        scores = [s for _, s in filtered]
     else:
-        texts, scores, tops = all_texts, all_scores, all_tops
+        texts, scores = all_texts, all_scores
 
-    # Paddle postprocessing (exact string fixes + noise-length filter)
+    # Paddle postprocessing: exact string fixes + noise-length filter
     filtered_pairs = _postprocess_paddle(list(zip(texts, scores)))
-    # Keep tops in sync with surviving texts
-    surviving_texts_set = [t for t, _ in filtered_pairs]
-    surviving_tops = []
-    ti = 0
-    for t in surviving_texts_set:
-        while ti < len(texts) and texts[ti] != t:
-            ti += 1
-        surviving_tops.append(tops[ti] if ti < len(tops) else 0.0)
-        ti += 1
-    texts = surviving_texts_set
-    tops  = surviving_tops
+    texts = [t for t, _ in filtered_pairs]
 
-    # ── Additional filter modes ───────────────────────────────────────────────
-    if filter_mode == "reading_match" and tagger and texts:
-        texts = filter_reading_match(texts, tagger)
-
-    elif filter_mode == "vpos" and tops and texts:
-        median_top = float(np.median(tops))
-        img_h = bgr_frame.shape[0]
-        vpos_cutoff = median_top - VPOS_THRESHOLD * img_h
-        texts = [
-            t for t, top in zip(texts, tops)
-            if top >= vpos_cutoff
-        ]
+    # ── Reading-match filter ──────────────────────────────────────────────────
+    if use_reading_match and texts:
+        texts = filter_reading_match(texts, tagger, jmd)
 
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
     return "\n".join(texts), elapsed_ms
 
 
 def _apple_vision_ocr_on_frame(bgr_frame, Vision, Quartz,
-                                filter_mode: str = "baseline",
-                                tagger=None):
+                                use_reading_match: bool = False,
+                                tagger=None, jmd=None):
     """
     Run Apple Vision OCR on a preprocessed BGR frame.
 
-    filter_mode:
-      "baseline"      — bimodal gap split + isolation guard (original)
-      "reading_match" — baseline then reading-match filter
-      "vpos"          — baseline then vertical-position gate
+    use_reading_match: if True, applies the reading-match filter after the
+      baseline bimodal gap split + isolation guard.
 
-    setUsesLanguageCorrection_(False) throughout — matches the best-performing
-    AV baseline (zelda_translator_working_nlp.py).
+    setUsesLanguageCorrection_(False) — matches the best-performing AV
+    baseline (zelda_translator_working_nlp.py).
 
     Returns (japanese_text, elapsed_ms).
     """
@@ -397,18 +437,17 @@ def _apple_vision_ocr_on_frame(bgr_frame, Vision, Quartz,
         japanese = ""
 
         if raw_observations:
-            # Convert AV bounding boxes (origin bottom-left, y up) to image coords
-            # (origin top-left, y down).
-            # top_y in image coords = (1 - (origin.y + height)) * img_h
+            # Convert AV bounding boxes (origin bottom-left, y increases up)
+            # to image coordinates (origin top-left, y increases down).
             candidates = []
             for text, bbox in raw_observations:
                 px_h  = bbox.size.height * img_h
                 top_y = (1.0 - (bbox.origin.y + bbox.size.height)) * img_h
                 cy    = top_y + px_h / 2.0
-                candidates.append((text, px_h, cy, top_y))
+                candidates.append((text, px_h, cy))
 
             # ── Baseline: bimodal gap split + isolation guard ─────────────────
-            sorted_h = sorted(h for _, h, _, _ in candidates)
+            sorted_h = sorted(h for _, h, _ in candidates)
             furi_thresh = sorted_h[0]
             if len(sorted_h) >= 2:
                 gaps = [(sorted_h[i + 1] - sorted_h[i], i)
@@ -418,31 +457,19 @@ def _apple_vision_ocr_on_frame(bgr_frame, Vision, Quartz,
                     furi_thresh = sorted_h[gap_idx + 1]
 
             median_h = float(np.median(sorted_h))
-            large_centres = [cy for _, h, cy, _ in candidates if h >= furi_thresh]
+            large_centres = [cy for _, h, cy in candidates if h >= furi_thresh]
 
-            kept = []  # (text, top_y)
-            for text, px_h, cy, top_y in candidates:
+            texts = []
+            for text, px_h, cy in candidates:
                 if px_h >= furi_thresh:
-                    kept.append((text, top_y))
+                    texts.append(text)
                 elif large_centres and any(
                         abs(cy - lc) < median_h * 1.5 for lc in large_centres):
-                    kept.append((text, top_y))
+                    texts.append(text)
 
-            texts = [t for t, _ in kept]
-            tops  = [top for _, top in kept]
-
-            # ── Additional filter modes ───────────────────────────────────────
-            if filter_mode == "reading_match" and tagger and texts:
-                filtered = filter_reading_match(texts, tagger)
-                texts = filtered
-
-            elif filter_mode == "vpos" and tops and texts:
-                median_top = float(np.median(tops))
-                vpos_cutoff = median_top - VPOS_THRESHOLD * img_h
-                texts = [
-                    t for t, top in zip(texts, tops)
-                    if top >= vpos_cutoff
-                ]
+            # ── Reading-match filter ──────────────────────────────────────────
+            if use_reading_match and texts:
+                texts = filter_reading_match(texts, tagger, jmd)
 
             japanese = " ".join(texts).strip()
 
@@ -458,74 +485,52 @@ def _apple_vision_ocr_on_frame(bgr_frame, Vision, Quartz,
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_av_rowdensity(image_path, Vision, Quartz):
-    """Pipeline 1: Apple Vision + row-density. Baseline."""
+    """Pipeline 1: Apple Vision + row-density preprocessing. Baseline."""
     img_bgr = cv2.imread(image_path)
     if img_bgr is None:
         return {"engine": "av_rowdensity", "status": "load_error"}
     preprocessed = preprocess_row_density(img_bgr)
     text, elapsed_ms = _apple_vision_ocr_on_frame(
-        preprocessed, Vision, Quartz, filter_mode="baseline")
+        preprocessed, Vision, Quartz, use_reading_match=False)
     return {"engine": "av_rowdensity", "status": "ok",
             "text": text, "elapsed": elapsed_ms}
 
 
-def run_av_reading_match(image_path, Vision, Quartz, tagger):
+def run_av_reading_match(image_path, Vision, Quartz, tagger, jmd):
     """Pipeline 2: Apple Vision + row-density + reading-match filter."""
     img_bgr = cv2.imread(image_path)
     if img_bgr is None:
         return {"engine": "av_reading_match", "status": "load_error"}
     preprocessed = preprocess_row_density(img_bgr)
     text, elapsed_ms = _apple_vision_ocr_on_frame(
-        preprocessed, Vision, Quartz, filter_mode="reading_match", tagger=tagger)
+        preprocessed, Vision, Quartz,
+        use_reading_match=True, tagger=tagger, jmd=jmd)
     return {"engine": "av_reading_match", "status": "ok",
             "text": text, "elapsed": elapsed_ms}
 
 
-def run_av_vpos(image_path, Vision, Quartz):
-    """Pipeline 3: Apple Vision + row-density + vertical-position gate."""
-    img_bgr = cv2.imread(image_path)
-    if img_bgr is None:
-        return {"engine": "av_vpos", "status": "load_error"}
-    preprocessed = preprocess_row_density(img_bgr)
-    text, elapsed_ms = _apple_vision_ocr_on_frame(
-        preprocessed, Vision, Quartz, filter_mode="vpos")
-    return {"engine": "av_vpos", "status": "ok",
-            "text": text, "elapsed": elapsed_ms}
-
-
 def run_paddle_rowdensity(image_path, paddle_ocr):
-    """Pipeline 4: PaddleOCR + row-density. Baseline."""
+    """Pipeline 3: PaddleOCR + row-density preprocessing. Baseline."""
     img_bgr = cv2.imread(image_path)
     if img_bgr is None:
         return {"engine": "paddle_rowdensity", "status": "load_error"}
     preprocessed = preprocess_row_density(img_bgr)
     text, elapsed_ms = _paddle_ocr_on_frame(
-        preprocessed, paddle_ocr, filter_mode="baseline")
+        preprocessed, paddle_ocr, use_reading_match=False)
     return {"engine": "paddle_rowdensity", "status": "ok",
             "text": text, "elapsed": elapsed_ms}
 
 
-def run_paddle_reading_match(image_path, paddle_ocr, tagger):
-    """Pipeline 5: PaddleOCR + row-density + reading-match filter."""
+def run_paddle_reading_match(image_path, paddle_ocr, tagger, jmd):
+    """Pipeline 4: PaddleOCR + row-density + reading-match filter."""
     img_bgr = cv2.imread(image_path)
     if img_bgr is None:
         return {"engine": "paddle_reading_match", "status": "load_error"}
     preprocessed = preprocess_row_density(img_bgr)
     text, elapsed_ms = _paddle_ocr_on_frame(
-        preprocessed, paddle_ocr, filter_mode="reading_match", tagger=tagger)
+        preprocessed, paddle_ocr,
+        use_reading_match=True, tagger=tagger, jmd=jmd)
     return {"engine": "paddle_reading_match", "status": "ok",
-            "text": text, "elapsed": elapsed_ms}
-
-
-def run_paddle_vpos(image_path, paddle_ocr):
-    """Pipeline 6: PaddleOCR + row-density + vertical-position gate."""
-    img_bgr = cv2.imread(image_path)
-    if img_bgr is None:
-        return {"engine": "paddle_vpos", "status": "load_error"}
-    preprocessed = preprocess_row_density(img_bgr)
-    text, elapsed_ms = _paddle_ocr_on_frame(
-        preprocessed, paddle_ocr, filter_mode="vpos")
-    return {"engine": "paddle_vpos", "status": "ok",
             "text": text, "elapsed": elapsed_ms}
 
 
@@ -614,7 +619,7 @@ def _collect_images(inputs):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Compare six Zelda OCR pipelines (2 engines x 3 filters).",
+        description="Compare four Zelda OCR pipelines (2 engines x baseline + reading-match).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -635,18 +640,23 @@ def main():
     )
 
     print(f"\n{'═' * 65}")
-    print("  Zelda OCR Pipeline Comparison — 6 pipelines")
+    print("  Zelda OCR Pipeline Comparison — 4 pipelines")
     print(f"{'═' * 65}")
-    print(f"  Images        : {len(image_paths)} file(s)")
+    print(f"  Images    : {len(image_paths)} file(s)")
     for p in image_paths:
-        print(f"                  {p}")
-    print(f"  Platform      : {platform.system()} {platform.machine()}")
-    print(f"  CSV           : {csv_path}")
-    print(f"  Pipelines     : baseline | reading_match | vpos  (x2 engines)")
-    print(f"  Vpos threshold: {VPOS_THRESHOLD*100:.0f}% of image height above median top edge")
+        print(f"              {p}")
+    print(f"  Platform  : {platform.system()} {platform.machine()}")
+    print(f"  CSV       : {csv_path}")
+    print(f"  Pipelines : av_rowdensity | av_reading_match | "
+          f"paddle_rowdensity | paddle_reading_match")
 
-    # ── Load MeCab once ───────────────────────────────────────────────────────
+    # ── Load NLP libraries once ───────────────────────────────────────────────
+    print("\n⏳  Loading NLP libraries...")
     tagger = _get_tagger()
+    jmd    = _get_jmd()
+    if not tagger and not jmd:
+        print("  ⚠️  No NLP libraries available — reading-match pipelines will "
+              "produce identical output to baselines")
 
     # ── Load PaddleOCR once ───────────────────────────────────────────────────
     paddle_ocr = None
@@ -687,23 +697,23 @@ def main():
         print(f"\n\n[Image {idx + 1}/{len(image_paths)}] {Path(image_path).name}")
         results = []
 
-        # Apple Vision pipelines (1–3)
+        # Apple Vision pipelines (1–2)
         if Vision and Quartz:
             results.append(run_av_rowdensity(image_path, Vision, Quartz))
-            results.append(run_av_reading_match(image_path, Vision, Quartz, tagger))
-            results.append(run_av_vpos(image_path, Vision, Quartz))
+            results.append(run_av_reading_match(
+                image_path, Vision, Quartz, tagger, jmd))
         else:
-            for engine in ("av_rowdensity", "av_reading_match", "av_vpos"):
+            for engine in ("av_rowdensity", "av_reading_match"):
                 results.append({"engine": engine, "status": "skipped",
                                  "reason": "Apple Vision unavailable"})
 
-        # PaddleOCR pipelines (4–6)
+        # PaddleOCR pipelines (3–4)
         if paddle_ocr:
             results.append(run_paddle_rowdensity(image_path, paddle_ocr))
-            results.append(run_paddle_reading_match(image_path, paddle_ocr, tagger))
-            results.append(run_paddle_vpos(image_path, paddle_ocr))
+            results.append(run_paddle_reading_match(
+                image_path, paddle_ocr, tagger, jmd))
         else:
-            for engine in ("paddle_rowdensity", "paddle_reading_match", "paddle_vpos"):
+            for engine in ("paddle_rowdensity", "paddle_reading_match"):
                 results.append({"engine": engine, "status": "skipped",
                                  "reason": "PaddleOCR unavailable"})
 

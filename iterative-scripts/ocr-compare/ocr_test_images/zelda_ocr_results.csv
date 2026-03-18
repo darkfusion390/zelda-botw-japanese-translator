@@ -1,0 +1,78 @@
+image,engine,status,elapsed_ms,output
+test1,av_rowdensity,ok,444,たき火に ゆっくりあたって また 焼きリンゴでも こしらえるとするかのう
+test1,av_reading_match,ok,246,たき火に ゆっくりあたって また 焼きリンゴでも こしらえるとするかのう
+test1,paddle_rowdensity,ok,1135,"たき火にゆっくりあたって
+また 焼きリンゴでもこしらえるとするかのう"
+test1,paddle_reading_match,ok,1088,"たき火にゆっくりあたって
+また 焼きリンゴでもこしらえるとするかのう"
+test10,av_rowdensity,ok,182,せんでんどうか もしかしていままでの伝動画みてる？
+test10,av_reading_match,ok,272,せんでんどうか もしかしていままでの伝動画みてる？
+test10,paddle_rowdensity,ok,1684,"どちらさま?
+せんでんどうが
+もしかしていままでの宣伝動画みてる？"
+test10,paddle_reading_match,ok,1713,"どちらさま?
+せんでんどうが
+もしかしていままでの宣伝動画みてる？"
+test11,av_rowdensity,ok,157,やせい 野生ポケモンの いたずらじゃなかったみたい
+test11,av_reading_match,ok,220,野生ポケモンの いたずらじゃなかったみたい
+test11,paddle_rowdensity,ok,1102,"野生ポケモンの
+いたすらじゃなかつたみたい"
+test11,paddle_reading_match,ok,1156,"野生ポケモンの
+いたすらじゃなかつたみたい"
+test2,av_rowdensity,ok,110,食材はそのまま食うのもいいが あぶった方が栄養も増して美味いんじゃ
+test2,av_reading_match,ok,256,食材はそのまま食うのもいいが あぶった方が栄養も増して美味いんじゃ
+test2,paddle_rowdensity,ok,936,"食材はそのまま食うのもいいが
+あぶった方が栄養も増して美味いんじゃ"
+test2,paddle_reading_match,ok,1042,"食材はそのまま食うのもいいが
+あぶった方が栄養も増して美味いんじゃ"
+test3,av_rowdensity,ok,154,のう…・お主 どこか行くところが あるんじゃないかの？
+test3,av_reading_match,ok,210,のう…・お主 どこか行くところが あるんじゃないかの？
+test3,paddle_rowdensity,ok,997,"のう…お主
+どこか行くところがあるんじゃないかの？"
+test3,paddle_reading_match,ok,1038,"のう…お主
+どこか行くところがあるんじゃないかの？"
+test4,av_rowdensity,ok,115,たき火に ゆっくりあたって また 焼きリンゴでも こしらえるとするかのう
+test4,av_reading_match,ok,132,たき火に ゆっくりあたって また 焼きリンゴでも こしらえるとするかのう
+test4,paddle_rowdensity,ok,960,"たき火にゆっくりあたって
+また 焼きリンゴでも こしらえるとするかのう"
+test4,paddle_reading_match,ok,975,"たき火にゆっくりあたって
+また 焼きリンゴでも こしらえるとするかのう"
+test5,av_rowdensity,ok,114,食材はそのまま食うのもいいが あぶった方が栄養も増して美味いんじや
+test5,av_reading_match,ok,219,食材はそのまま食うのもいいが あぶった方が栄養も増して美味いんじや
+test5,paddle_rowdensity,ok,910,"食材はそのまま食うのもいいが
+あぶった方が栄養も増して美味いんじゃ"
+test5,paddle_reading_match,ok,1034,"食材はそのまま食うのもいいが
+あぶった方が栄養も増して美味いんじゃ"
+test6,av_rowdensity,ok,102,どこか行くところが あるんじゃないかの？
+test6,av_reading_match,ok,116,どこか行くところが あるんじゃないかの？
+test6,paddle_rowdensity,ok,927,"のう…お主
+どこか行くところがあるんじゃないかの？"
+test6,paddle_reading_match,ok,964,"のう…お主
+どこか行くところがあるんじゃないかの？"
+test7,av_rowdensity,ok,107,あたしらの撮影のジャマされたけど しゃちょう あの社長いいこといってるよね
+test7,av_reading_match,ok,206,あたしらの撮影のジャマされたけど あの社長いいこといってるよね
+test7,paddle_rowdensity,ok,1164,"さつえい
+あたしらの撮影のジャマされたけど
+しやちよう
+あの社長いいこといつてるよね"
+test7,paddle_reading_match,ok,1258,"あたしらの撮影のジャマされたけど
+しやちよう
+あの社長いいこといつてるよね"
+test8,av_rowdensity,ok,92,あなたの強さなら ジムチャレンジに 勝ち残れそう！
+test8,av_reading_match,ok,131,あなたの強さなら ジムチャレンジに 勝ち残れそう！
+test8,paddle_rowdensity,ok,852,"あなたの
+強さなら
+勝ち残れそう!
+ジムチャレンジに"
+test8,paddle_reading_match,ok,881,"あなたの
+強さなら
+勝ち残れそう!
+ジムチャレンジに"
+test9,av_rowdensity,ok,175,み 気に入った場所が 見つかったら、 Xのポケットから テントを選んで 張ってくださいねー！
+test9,av_reading_match,ok,274,気に入った場所が 見つかったら、 Xのポケットから テントを選んで 張ってくださいねー！
+test9,paddle_rowdensity,ok,2374,"気に入った場所が見つかったら、
+のポケットからテントを選んで
+張ってくださいねー!"
+test9,paddle_reading_match,ok,2356,"気に入った場所が見つかったら、
+のポケットからテントを選んで
+張ってくださいねー!"
