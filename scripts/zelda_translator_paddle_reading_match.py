@@ -105,7 +105,8 @@ _SKIP_VOCAB = {
 # the NLP libraries above, which are faster and more accurate than the 7b model.
 OLLAMA_URL        = "http://localhost:11434/api/generate"
 TRANSLATION_MODEL = "qwen3:8b"
-VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
+# VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = 0
 
 GAME_NAME    = "zelda_botw_"
 LOG_FILE     = "pixel_llm_log.csv"

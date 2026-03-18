@@ -17,7 +17,8 @@ import json
 import sys
 import numpy as np
 
-VIDEO_SOURCE = "http://192.168.1.107:8080/video"
+# VIDEO_SOURCE = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = 0  # OpenCV webcam capture device index (default 0)
 BOUNDS_FILE   = "bounds.json"
 
 def grab_frame(url):
