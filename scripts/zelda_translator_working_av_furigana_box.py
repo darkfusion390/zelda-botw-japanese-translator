@@ -1250,7 +1250,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
     """Save the raw (pre-preprocessed) crop as training_image_<timestamp>.jpg and
     append a row to ocr_training_log.csv.  Called in a background thread on every
     Gate 4 pass — one entry per unique dialogue line that triggers an LLM call.
-    Both the image write and CSV append are controlled by OCR_TRAINING_ENABLED.""\"
+    Both the image write and CSV append are controlled by OCR_TRAINING_ENABLED."""
     try:
         os.makedirs(OCR_TRAINING_DIR, exist_ok=True)
         ts        = time.strftime("%Y%m%d_%H%M%S")
@@ -1984,19 +1984,9 @@ async function loadSidebar() {
   } catch(e) {}
 }
 
-// Track the latest poll state so returnToLive can restore the current lesson
-let _lastPollState = null;
-
-function _liveBtnLabel() {
-  if (_lastPollState && _lastPollState.lesson_pending_ack) return '↩ back to current lesson';
-  return '↩ back to live';
-}
-
 function showSidebarLesson(idx) {
   activeSidebarIdx = idx;
-  const liveBtn = document.getElementById('live-btn');
-  liveBtn.style.display = 'inline-block';
-  liveBtn.textContent = _liveBtnLabel();
+  document.getElementById('live-btn').style.display = 'inline-block';
   // Update active state
   document.querySelectorAll('.sidebar-item').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
@@ -2013,9 +2003,6 @@ function showSidebarLesson(idx) {
   const enEl = document.getElementById('english');
   enEl.textContent = l.translation || '';
   enEl.className   = 'english';
-
-  // Hide ack bar while browsing history — poll restores it on return to live
-  document.getElementById('ack-bar').classList.remove('visible');
 
   // If in LEARN mode, also populate lesson panel
   if (currentMode === 'LEARN') {
@@ -2100,7 +2087,6 @@ function returnToLive() {
   activeSidebarIdx = null;
   document.getElementById('live-btn').style.display = 'none';
   document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
-  // poll() will fire within 500ms and restore the correct live/pending-lesson state
 }
 async function acknowledge() {
   const res  = await fetch('/acknowledge', {method: 'POST'});
@@ -2190,13 +2176,6 @@ let sidebarRefreshCounter = 0;
 async function poll() {
   try {
     const d = await (await fetch('/state')).json();
-    _lastPollState = d;
-
-    // If user is browsing a sidebar lesson, keep the back-button label current
-    // (lesson_pending_ack may change while they're reading history)
-    if (activeSidebarIdx !== null) {
-      document.getElementById('live-btn').textContent = _liveBtnLabel();
-    }
 
     // Translate status (grey)
     const ts = document.getElementById('translate-status');

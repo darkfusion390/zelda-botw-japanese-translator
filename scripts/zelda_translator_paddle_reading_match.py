@@ -1337,7 +1337,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
     """Save the raw (pre-preprocessed) crop as training_image_<timestamp>.jpg and
     append a row to ocr_training_log.csv.  Called in a background thread on every
     Gate 4 pass — one entry per unique dialogue line that triggers an LLM call.
-    Both the image write and CSV append are controlled by OCR_TRAINING_ENABLED.""\"
+    Both the image write and CSV append are controlled by OCR_TRAINING_ENABLED."""
     try:
         os.makedirs(OCR_TRAINING_DIR, exist_ok=True)
         ts        = time.strftime("%Y%m%d_%H%M%S")
