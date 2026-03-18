@@ -116,6 +116,13 @@ PREVIEW_PATH = os.path.expanduser("~/Downloads/preprocessed_crop.jpg")
 BOUNDS_FILE  = "bounds.json"
 QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 
+# ── OCR training data collection ──────────────────────────────────────────────
+# When enabled, saves the raw (pre-preprocessed) crop + a JSON sidecar every
+# time Gate 4 passes — i.e. once per unique stable dialogue line that will
+# trigger an LLM call. One image per new line of text, never duplicates.
+OCR_TRAINING_ENABLED = True
+OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
+
 # ── Brightness gate ───────────────────────────────────────────────────────────
 BRIGHTNESS_GATE_HIGH = 80.0
 BRIGHTNESS_GATE_LOW  = 10.0
@@ -532,28 +539,72 @@ def push_history(entry):
 
 def apple_vision_ocr(frame):
     t0 = time.perf_counter()
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         tmp_path = f.name
-    cv2.imwrite(tmp_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    cv2.imwrite(tmp_path, frame)
     try:
         img_url = Quartz.CFURLCreateFromFileSystemRepresentation(
             None, tmp_path.encode(), len(tmp_path), False)
         src = Quartz.CGImageSourceCreateWithURL(img_url, None)
         cg_image = Quartz.CGImageSourceCreateImageAtIndex(src, 0, None)
-        results = []
+
+        raw_observations = []
+
         def handler(request, error):
-            if error: return
+            if error:
+                return
             for obs in request.results():
-                results.append(obs.topCandidates_(1)[0].string())
+                cand = obs.topCandidates_(1)
+                if cand:
+                    raw_observations.append((cand[0].string(), obs.boundingBox()))
+
         request = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(handler)
         request.setRecognitionLanguages_(["ja"])
         request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
         request.setUsesLanguageCorrection_(False)
         Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(
             cg_image, {}).performRequests_error_([request], None)
-        japanese = " ".join(results).strip()
+
+        img_h = frame.shape[0]
+        japanese = ""
+
+        if raw_observations:
+            # Convert Vision bounding boxes (origin bottom-left, y increases up)
+            # to image coordinates (origin top-left, y increases down).
+            candidates = []
+            for text, bbox in raw_observations:
+                px_h  = bbox.size.height * img_h
+                top_y = (1.0 - (bbox.origin.y + bbox.size.height)) * img_h
+                cy    = top_y + px_h / 2.0
+                candidates.append((text, px_h, cy))
+
+            # Bimodal gap split to find furigana/main-text height boundary
+            sorted_h    = sorted(h for _, h, _ in candidates)
+            furi_thresh = sorted_h[0]
+            if len(sorted_h) >= 2:
+                gaps = [(sorted_h[i + 1] - sorted_h[i], i)
+                        for i in range(len(sorted_h) - 1)]
+                max_gap, gap_idx = max(gaps)
+                if max_gap > sorted_h[-1] * 0.20:
+                    furi_thresh = sorted_h[gap_idx + 1]
+
+            # Isolation guard: keep small boxes that sit close to a main-text line
+            median_h      = float(np.median(sorted_h))
+            large_centres = [cy for _, h, cy in candidates if h >= furi_thresh]
+
+            texts = []
+            for text, px_h, cy in candidates:
+                if px_h >= furi_thresh:
+                    texts.append(text)
+                elif large_centres and any(
+                        abs(cy - lc) < median_h * 1.5 for lc in large_centres):
+                    texts.append(text)
+
+            japanese = " ".join(texts).strip()
+
     finally:
         os.unlink(tmp_path)
+
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
     # print(f"⏱  [ocr] {elapsed_ms}ms  →  {japanese}")
     return japanese, elapsed_ms
@@ -1114,6 +1165,29 @@ def pixel_diff_thread(bounds):
 latest_stable_jp     = {"text": "", "ocr_ms": 0}
 latest_stable_lock   = threading.Lock()
 
+# ── OCR training data helpers ──────────────────────────────────────────────────
+
+def _save_ocr_training_sample(raw_crop, japanese: str):
+    """Save the raw (pre-preprocessed) crop and a JSON sidecar to ocr_training_data/.
+    Called in a background thread on every Gate 4 pass — one file per unique dialogue line.
+    Filename: YYYYMMDD_HHMMSS_<first 20 chars of japanese sanitised>.jpg"""
+    try:
+        os.makedirs(OCR_TRAINING_DIR, exist_ok=True)
+        ts        = time.strftime("%Y%m%d_%H%M%S")
+        safe_jp   = re.sub(r'[^\w\u3040-\u9fff]', '', japanese)[:20]
+        stem      = f"{ts}_{safe_jp}"
+        img_path  = os.path.join(OCR_TRAINING_DIR, stem + ".jpg")
+        json_path = os.path.join(OCR_TRAINING_DIR, stem + ".json")
+        cv2.imwrite(img_path, raw_crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "japanese":  japanese,
+            }, f, ensure_ascii=False, indent=2)
+        print(f"📸  OCR sample saved: {stem}.jpg")
+    except Exception as e:
+        print(f"⚠️  OCR training save failed: {e}")
+
 # ── OCR loop — continuously reads camera, runs stability gates, publishes stable text ──
 
 def ocr_loop(bounds):
@@ -1196,6 +1270,13 @@ def ocr_loop(bounds):
                 vocab = load_vocab()
                 state["japanese"] = jp
                 state["annotated"] = annotate_japanese(jp, vocab)
+                # Save raw crop + sidecar for OCR comparison training data
+                if OCR_TRAINING_ENABLED:
+                    threading.Thread(
+                        target=_save_ocr_training_sample,
+                        args=(crop.copy(), jp),
+                        daemon=True,
+                    ).start()
 
         except Exception as e:
             print(f"❌  OCR error: {e}")
@@ -1823,9 +1904,19 @@ async function loadSidebar() {
   } catch(e) {}
 }
 
+// Track the latest poll state so returnToLive can restore the current lesson
+let _lastPollState = null;
+
+function _liveBtnLabel() {
+  if (_lastPollState && _lastPollState.lesson_pending_ack) return '↩ back to current lesson';
+  return '↩ back to live';
+}
+
 function showSidebarLesson(idx) {
   activeSidebarIdx = idx;
-  document.getElementById('live-btn').style.display = 'inline-block';
+  const liveBtn = document.getElementById('live-btn');
+  liveBtn.style.display = 'inline-block';
+  liveBtn.textContent = _liveBtnLabel();
   // Update active state
   document.querySelectorAll('.sidebar-item').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
@@ -1842,6 +1933,9 @@ function showSidebarLesson(idx) {
   const enEl = document.getElementById('english');
   enEl.textContent = l.translation || '';
   enEl.className   = 'english';
+
+  // Hide ack bar while browsing history — poll restores it on return to live
+  document.getElementById('ack-bar').classList.remove('visible');
 
   // If in LEARN mode, also populate lesson panel
   if (currentMode === 'LEARN') {
@@ -1926,6 +2020,7 @@ function returnToLive() {
   activeSidebarIdx = null;
   document.getElementById('live-btn').style.display = 'none';
   document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  // poll() will fire within 500ms and restore the correct live/pending-lesson state
 }
 async function acknowledge() {
   const res  = await fetch('/acknowledge', {method: 'POST'});
@@ -2015,6 +2110,13 @@ let sidebarRefreshCounter = 0;
 async function poll() {
   try {
     const d = await (await fetch('/state')).json();
+    _lastPollState = d;
+
+    // If user is browsing a sidebar lesson, keep the back-button label current
+    // (lesson_pending_ack may change while they're reading history)
+    if (activeSidebarIdx !== null) {
+      document.getElementById('live-btn').textContent = _liveBtnLabel();
+    }
 
     // Translate status (grey)
     const ts = document.getElementById('translate-status');
