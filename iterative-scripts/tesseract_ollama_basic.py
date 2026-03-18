@@ -38,7 +38,7 @@ import numpy as np
 OLLAMA_URL    = "http://localhost:11434/api/generate"
 MODEL         = "qwen2.5:7b"
 POLL_INTERVAL = 5
-IP_WEBCAM_URL = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = "http://192.168.1.107:8080/video"
 
 # ── Crop tuning ───────────────────────────────────────────────────────────────
 # These are fractions of the TV crop (after the outer bezel crop below).
@@ -124,10 +124,10 @@ def translate(japanese):
     return r.json()["response"].strip()
 
 def capture_loop():
-    print(f"📡  Connecting to {IP_WEBCAM_URL} ...")
-    cap = cv2.VideoCapture(IP_WEBCAM_URL)
+    print(f"📡  Connecting to {VIDEO_SOURCE} ...")
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap.isOpened():
-        print("❌  Cannot connect. Check IP_WEBCAM_URL and that IP Webcam app is running.")
+        print("❌  Cannot connect. Check VIDEO_SOURCE and that IP Webcam app is running.")
         return
     print("✅  Connected. Open http://localhost:5002\n")
 
@@ -136,7 +136,7 @@ def capture_loop():
         if not ret:
             print("⚠️   Lost connection — retrying...")
             time.sleep(3)
-            cap = cv2.VideoCapture(IP_WEBCAM_URL)
+            cap = cv2.VideoCapture(VIDEO_SOURCE)
             continue
 
         # Step 1: crop out phone bezel / surroundings to get just the TV
@@ -277,7 +277,7 @@ def get_state():
 
 if __name__ == '__main__':
     print("🎮  Zelda Simple Translator")
-    print(f"📱  {IP_WEBCAM_URL}")
+    print(f"📱  {VIDEO_SOURCE}")
     print("─" * 40)
     threading.Thread(target=capture_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5002, debug=False)

@@ -46,7 +46,7 @@ from flask import Flask, render_template_string, jsonify, Response
 # ── Config ─────────────────────────────────────────────────────────────────────
 OLLAMA_URL         = "http://localhost:11434/api/generate"
 TRANSLATION_MODEL  = "qwen2.5:1.5b"   # text-only, lightweight
-IP_WEBCAM_URL      = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE      = "http://192.168.1.107:8080/video"
 
 LOG_FILE    = "pixel_llm_log.csv"
 PREVIEW_PATH = os.path.expanduser("~/Downloads/preprocessed_crop.jpg")
@@ -339,7 +339,7 @@ latest_crop_lock = threading.Lock()
 def pixel_diff_thread(bounds):
     """Runs as a daemon — reads frames continuously, calculates diff, logs to state."""
     global latest_crop
-    cap_diff = cv2.VideoCapture(IP_WEBCAM_URL)
+    cap_diff = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap_diff.isOpened():
         print("⚠️  Pixel diff thread: cannot open camera")
         return
@@ -448,12 +448,12 @@ def capture_loop():
     state["bounds"] = bounds
     state["status"] = f"Bounds: x={bounds['x']} y={bounds['y']} w={bounds['w']} h={bounds['h']}"
 
-    print(f"📡  Connecting to {IP_WEBCAM_URL} ...")
-    cap = cv2.VideoCapture(IP_WEBCAM_URL)
+    print(f"📡  Connecting to {VIDEO_SOURCE} ...")
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap.isOpened():
-        print("❌  Cannot connect. Check IP_WEBCAM_URL.")
+        print("❌  Cannot connect. Check VIDEO_SOURCE.")
         state["status"] = "Cannot connect to camera"
-        state["error"]  = "Check IP_WEBCAM_URL and IP Webcam app"
+        state["error"]  = "Check VIDEO_SOURCE and IP Webcam app"
         return
     print("✅  Connected.")
 
@@ -977,7 +977,7 @@ def unload_model():
 
 if __name__ == '__main__':
     print("🎮  Zelda Translator")
-    print(f"📱  Camera: {IP_WEBCAM_URL}")
+    print(f"📱  Camera: {VIDEO_SOURCE}")
     print(f"🤖  OCR:    Apple Vision (on-device)")
     print(f"🤖  Translate: {TRANSLATION_MODEL}")
     print("─" * 40)

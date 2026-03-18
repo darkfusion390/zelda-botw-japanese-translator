@@ -42,7 +42,7 @@ from flask import Flask, render_template_string, jsonify, Response
 # ── Config ────────────────────────────────────────────────────────────────────
 OLLAMA_URL    = "http://localhost:11434/api/generate"
 MODEL         = "qwen2.5vl:7b"       # ollama pull qwen2.5vl:7b
-IP_WEBCAM_URL = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = "http://192.168.1.107:8080/video"
 
 # ── Typewriter detection tuning ───────────────────────────────────────────────
 # How different two frames must be to count as "still animating" (0-255 scale)
@@ -214,10 +214,10 @@ def query_vision_model(frame):
     return japanese, english
 
 def capture_loop():
-    print(f"📡  Connecting to {IP_WEBCAM_URL} ...")
-    cap = cv2.VideoCapture(IP_WEBCAM_URL)
+    print(f"📡  Connecting to {VIDEO_SOURCE} ...")
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap.isOpened():
-        print("❌  Cannot connect. Check IP_WEBCAM_URL and that IP Webcam app is running.")
+        print("❌  Cannot connect. Check VIDEO_SOURCE and that IP Webcam app is running.")
         return
     print(f"✅  Connected. Using model: {MODEL}")
     print("    Open http://localhost:5002\n")
@@ -234,7 +234,7 @@ def capture_loop():
         if not ret:
             print("⚠️   Lost connection — retrying...")
             time.sleep(3)
-            cap = cv2.VideoCapture(IP_WEBCAM_URL)
+            cap = cv2.VideoCapture(VIDEO_SOURCE)
             prev_dlg = None
             stable_count = 0
             active_count = 0
@@ -562,7 +562,7 @@ def preview():
 
 if __name__ == '__main__':
     print("🎮  Zelda Vision Translator")
-    print(f"📱  {IP_WEBCAM_URL}")
+    print(f"📱  {VIDEO_SOURCE}")
     print("─" * 40)
     threading.Thread(target=capture_loop, daemon=True).start()
     app.run(host='0.0.0.0', port=5002, debug=False)

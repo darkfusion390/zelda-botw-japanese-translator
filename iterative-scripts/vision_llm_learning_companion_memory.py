@@ -48,7 +48,7 @@ from flask import Flask, render_template_string, jsonify, request as flask_reque
 # ── Config ────────────────────────────────────────────────────────────────────
 OLLAMA_URL      = "http://localhost:11434/api/generate"
 MODEL           = "qwen2.5vl:7b"
-IP_WEBCAM_URL   = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE   = "http://192.168.1.107:8080/video"
 MEMORY_FILE     = "zelda_memory.json"
 
 # How many consecutive stable frames before text is considered "settled"
@@ -317,8 +317,8 @@ def update_memory(memory, lesson):
 # ── Capture loop ──────────────────────────────────────────────────────────────
 
 def capture_loop():
-    print(f"📡  Connecting to {IP_WEBCAM_URL} ...")
-    cap = cv2.VideoCapture(IP_WEBCAM_URL)
+    print(f"📡  Connecting to {VIDEO_SOURCE} ...")
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap.isOpened():
         print("❌  Cannot connect.")
         return
@@ -351,7 +351,7 @@ def capture_loop():
         if not ret:
             print("⚠️  Lost connection — retrying...")
             time.sleep(3)
-            cap = cv2.VideoCapture(IP_WEBCAM_URL)
+            cap = cv2.VideoCapture(VIDEO_SOURCE)
             stable_count = 0
             last_hash    = None
             continue
@@ -980,7 +980,7 @@ poll();
 
 if __name__ == '__main__':
     print("🎮  Zelda 日本語 — Vision Learning Companion")
-    print(f"📱  {IP_WEBCAM_URL}")
+    print(f"📱  {VIDEO_SOURCE}")
     print(f"🧠  Memory: {MEMORY_FILE}")
     print("─" * 40)
     threading.Thread(target=capture_loop, daemon=True).start()

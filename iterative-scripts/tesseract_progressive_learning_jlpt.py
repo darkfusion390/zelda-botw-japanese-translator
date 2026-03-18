@@ -57,7 +57,7 @@ MASTERY_THRESHOLD = 5
 STRUGGLE_THRESHOLD = 3
 
 # IP Webcam (Android app) — replace with your S21's IP shown in the app
-IP_WEBCAM_URL     = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
 # ─────────────────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
@@ -341,14 +341,14 @@ def capture_loop():
     memory["sessions"] += 1
     save_memory(memory)
 
-    print(f"📡  Connecting to IP Webcam at {IP_WEBCAM_URL} ...")
-    cap = cv2.VideoCapture(IP_WEBCAM_URL)
+    print(f"📡  Connecting to IP Webcam at {VIDEO_SOURCE} ...")
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
 
     if not cap.isOpened():
         print("❌  Cannot connect to IP Webcam.")
         print("    • Make sure IP Webcam app is running on your S21")
         print("    • Tap 'Start server' in the app")
-        print(f"    • Update IP_WEBCAM_URL in config (current: {IP_WEBCAM_URL})")
+        print(f"    • Update VIDEO_SOURCE in config (current: {VIDEO_SOURCE})")
         print("    • Both devices must be on the same WiFi network")
         return
 
@@ -363,7 +363,7 @@ def capture_loop():
         if not ret:
             print("⚠️   Lost connection to IP Webcam — retrying in 3s...")
             time.sleep(3)
-            cap = cv2.VideoCapture(IP_WEBCAM_URL)
+            cap = cv2.VideoCapture(VIDEO_SOURCE)
             continue
         h, w = frame.shape[:2]
         tv = frame[int(h * 0.15):int(h * 0.80), int(w * 0.05):int(w * 0.95)]
@@ -1000,7 +1000,7 @@ def forget_word(word):
 
 if __name__ == '__main__':
     print("🎮  Zelda Progressive Japanese Tutor")
-    print(f"📱  S21 → IP Webcam @ {IP_WEBCAM_URL}")
+    print(f"📱  S21 → IP Webcam @ {VIDEO_SOURCE}")
     print(f"💾  Memory → {os.path.abspath(MEMORY_FILE)}")
     print("─" * 52)
     threading.Thread(target=capture_loop, daemon=True).start()

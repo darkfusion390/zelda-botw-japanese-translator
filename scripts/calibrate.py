@@ -17,14 +17,14 @@ import json
 import sys
 import numpy as np
 
-IP_WEBCAM_URL = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = "http://192.168.1.107:8080/video"
 BOUNDS_FILE   = "bounds.json"
 
 def grab_frame(url):
     print(f"📡  Connecting to {url} ...")
     cap = cv2.VideoCapture(url)
     if not cap.isOpened():
-        print("❌  Cannot connect. Check IP_WEBCAM_URL.")
+        print("❌  Cannot connect. Check VIDEO_SOURCE.")
         sys.exit(1)
 
     # Drain a few frames so we get a fresh one
@@ -95,7 +95,7 @@ def main():
     print("🎮  Zelda Translator — Calibration Tool")
     print("─" * 40)
 
-    frame = grab_frame(IP_WEBCAM_URL)
+    frame = grab_frame(VIDEO_SOURCE)
 
     while True:
         bounds = select_roi(frame)
@@ -104,7 +104,7 @@ def main():
             if retry != 'y':
                 print("Aborted.")
                 sys.exit(0)
-            frame = grab_frame(IP_WEBCAM_URL)
+            frame = grab_frame(VIDEO_SOURCE)
             continue
 
         confirmed = preview_crop(frame, bounds)
@@ -114,7 +114,7 @@ def main():
         else:
             print("↩️   Redoing selection...")
             # Optionally re-grab a fresh frame
-            frame = grab_frame(IP_WEBCAM_URL)
+            frame = grab_frame(VIDEO_SOURCE)
 
 if __name__ == "__main__":
     main()

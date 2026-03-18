@@ -108,7 +108,7 @@ _SKIP_VOCAB = {
 # the NLP libraries above, which are faster and more accurate than the 7b model.
 OLLAMA_URL        = "http://localhost:11434/api/generate"
 TRANSLATION_MODEL = "qwen3:8b"
-IP_WEBCAM_URL     = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
 
 GAME_NAME    = "zelda_botw_"
 LOG_FILE     = "pixel_llm_log.csv"
@@ -1147,7 +1147,7 @@ latest_crop_lock = threading.Lock()
 
 def pixel_diff_thread(bounds):
     global latest_crop
-    cap_diff = cv2.VideoCapture(IP_WEBCAM_URL)
+    cap_diff = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap_diff.isOpened():
         print("⚠️  Pixel diff thread: cannot open camera")
         return
@@ -1427,10 +1427,10 @@ def translation_loop(cap, bounds):
 def capture_loop():
     bounds = load_bounds()
     state["bounds"] = bounds
-    cap = cv2.VideoCapture(IP_WEBCAM_URL)
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap.isOpened():
         state["error"] = "Cannot connect to camera"
-        print("❌  Cannot connect. Check IP_WEBCAM_URL.")
+        print("❌  Cannot connect. Check VIDEO_SOURCE.")
         return
     print("✅  Connected.")
     translation_loop(cap, bounds)
@@ -2360,7 +2360,7 @@ def unload_model():
 
 if __name__ == '__main__':
     print("🎮  Zelda Translator")
-    print(f"📱  Camera:  {IP_WEBCAM_URL}")
+    print(f"📱  Camera:  {VIDEO_SOURCE}")
     print(f"🤖  Model:   {TRANSLATION_MODEL}")
     print(f"📚  Vocab:   {VOCAB_FILE}")
     print(f"🗃  Cache:   {CACHE_FILE}")
