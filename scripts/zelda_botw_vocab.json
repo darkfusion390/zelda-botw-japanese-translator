@@ -1,0 +1,411 @@
+{
+  "words": {
+    "食材": {
+      "reading": "shokuzai",
+      "meaning": "ingredient",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "その": {
+      "reading": "sono",
+      "meaning": "that",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "まま": {
+      "reading": "mama",
+      "meaning": "as it is",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "食う": {
+      "reading": "kuu",
+      "meaning": "to eat",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "いい": {
+      "reading": "ii",
+      "meaning": "good",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "あぶっ": {
+      "reading": "abutsu",
+      "meaning": "to warm (e.g. one's hands over a fire)",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "方": {
+      "reading": "hou",
+      "meaning": "direction",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "栄養": {
+      "reading": "eiyou",
+      "meaning": "nutrition",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "増し": {
+      "reading": "mashi",
+      "meaning": "to increase",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "美味い": {
+      "reading": "umai",
+      "meaning": "skillful",
+      "times_seen": 3,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "たき火": {
+      "reading": "takibi",
+      "meaning": "open-air fire (e.g. for garden refuse)",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "ゆっくり": {
+      "reading": "yukkuri",
+      "meaning": "slowly",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "あたっ": {
+      "reading": "atatsu",
+      "meaning": "to be hit",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "焼き": {
+      "reading": "yaki",
+      "meaning": "to burn",
+      "times_seen": 3,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "リンゴ": {
+      "reading": "ringo",
+      "meaning": "apple (fruit)",
+      "times_seen": 4,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "こしらえる": {
+      "reading": "koshiraeru",
+      "meaning": "to make",
+      "times_seen": 3,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "する": {
+      "reading": "suru",
+      "meaning": "to do",
+      "times_seen": 3,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "こんがり": {
+      "reading": "kongari",
+      "meaning": "well-cooked",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "焼い": {
+      "reading": "yai",
+      "meaning": "to burn",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "ぐらい": {
+      "reading": "gurai",
+      "meaning": "dark",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "じ": {
+      "reading": "ji",
+      "meaning": "child",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "・": {
+      "reading": "・",
+      "meaning": "",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "さてさて": {
+      "reading": "satesate",
+      "meaning": "well",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "こんな": {
+      "reading": "konna",
+      "meaning": "this sort of",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "ところ": {
+      "reading": "tokoro",
+      "meaning": "place",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "大き": {
+      "reading": "ooki",
+      "meaning": "big",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "この": {
+      "reading": "kono",
+      "meaning": "this",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "友人": {
+      "reading": "yuujin",
+      "meaning": "friend",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "いる": {
+      "reading": "iru",
+      "meaning": "to be (of animate objects)",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "少し": {
+      "reading": "sukoshi",
+      "meaning": "small quantity",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "うん": {
+      "reading": "un",
+      "meaning": "yes",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    },
+    "なん": {
+      "reading": "nan",
+      "meaning": "what",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16",
+      "last_seen": "2026-03-16"
+    }
+  },
+  "kanji": {
+    "食": {
+      "reading": "shoku",
+      "meaning": "eat",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "材": {
+      "reading": "zai",
+      "meaning": "lumber",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "方": {
+      "reading": "hou",
+      "meaning": "direction",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "栄": {
+      "reading": "ei",
+      "meaning": "flourish",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "養": {
+      "reading": "you",
+      "meaning": "foster",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "増": {
+      "reading": "zou",
+      "meaning": "increase",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "美": {
+      "reading": "bi",
+      "meaning": "beauty",
+      "times_seen": 3,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "味": {
+      "reading": "mi",
+      "meaning": "flavor",
+      "times_seen": 3,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "火": {
+      "reading": "ka",
+      "meaning": "fire",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "焼": {
+      "reading": "shou",
+      "meaning": "bake",
+      "times_seen": 4,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "大": {
+      "reading": "dai",
+      "meaning": "large",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "友": {
+      "reading": "yuu",
+      "meaning": "friend",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "人": {
+      "reading": "jin",
+      "meaning": "person",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    },
+    "少": {
+      "reading": "shou",
+      "meaning": "few",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-16"
+    }
+  },
+  "stats": {
+    "total_lines": 9,
+    "new_today": 46,
+    "last_session": "2026-03-16"
+  }
+}

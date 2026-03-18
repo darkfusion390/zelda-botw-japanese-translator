@@ -1,0 +1,1147 @@
+[
+  {
+    "time": "2026-03-16 12:02:29",
+    "japanese": "食材はそのまま食うのもいいが あぶった方が栄養も増して美味いんじゃ",
+    "romaji": "shokuzai ha sono mama kuu no mo ii ga abutsu ta hou ga eiyou mo mashi te umai n ja",
+    "translation": "It's fine to eat the ingredients as they are, but if you're careful, you'll get more nutrition and it'll be tastier.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "食材",
+        "reading": "shokuzai",
+        "meaning": "ingredient",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "は",
+        "reading": "ha",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "その",
+        "reading": "sono",
+        "meaning": "that",
+        "role": "pre-noun adj.",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "まま",
+        "reading": "mama",
+        "meaning": "as it is",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "食う",
+        "reading": "kuu",
+        "meaning": "to eat",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "の",
+        "reading": "no",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "も",
+        "reading": "mo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "いい",
+        "reading": "ii",
+        "meaning": "good",
+        "role": "adjective",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "あぶっ",
+        "reading": "abutsu",
+        "meaning": "to warm (e.g. one's hands over a fire)",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "た",
+        "reading": "ta",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "方",
+        "reading": "hou",
+        "meaning": "direction",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "栄養",
+        "reading": "eiyou",
+        "meaning": "nutrition",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "も",
+        "reading": "mo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "増し",
+        "reading": "mashi",
+        "meaning": "to increase",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "て",
+        "reading": "te",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "美味い",
+        "reading": "umai",
+        "meaning": "skillful",
+        "role": "adjective",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ん",
+        "reading": "n",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じゃ",
+        "reading": "ja",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "食",
+        "reading": "shoku",
+        "meaning": "eat",
+        "example": "しょく",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "材",
+        "reading": "zai",
+        "meaning": "lumber",
+        "example": "ざい",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "方",
+        "reading": "hou",
+        "meaning": "direction",
+        "example": "かた",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "栄",
+        "reading": "ei",
+        "meaning": "flourish",
+        "example": "ロン",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "養",
+        "reading": "you",
+        "meaning": "foster",
+        "example": "",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "増",
+        "reading": "zou",
+        "meaning": "increase",
+        "example": "ぞう",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "美",
+        "reading": "bi",
+        "meaning": "beauty",
+        "example": "び",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "味",
+        "reading": "mi",
+        "meaning": "flavor",
+        "example": "あじ",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-16 12:05:17",
+    "japanese": "たき火に ゆっくりあたって た焼きリンゴでも こしらえるとするかのう",
+    "romaji": "takibi ni yukkuri atatsu te ta yaki ringo de mo koshiraeru to suru ka nou",
+    "translation": "Warm up by the fire, and maybe make some roasted apples, huh?",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "たき火",
+        "reading": "takibi",
+        "meaning": "open-air fire (e.g. for garden refuse)",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "に",
+        "reading": "ni",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ゆっくり",
+        "reading": "yukkuri",
+        "meaning": "slowly",
+        "role": "adverb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "あたっ",
+        "reading": "atatsu",
+        "meaning": "to be hit",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "て",
+        "reading": "te",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "た",
+        "reading": "ta",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "焼き",
+        "reading": "yaki",
+        "meaning": "to burn",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "リンゴ",
+        "reading": "ringo",
+        "meaning": "apple (fruit)",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "で",
+        "reading": "de",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "も",
+        "reading": "mo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "こしらえる",
+        "reading": "koshiraeru",
+        "meaning": "to make",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "と",
+        "reading": "to",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "する",
+        "reading": "suru",
+        "meaning": "to do",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "か",
+        "reading": "ka",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "のう",
+        "reading": "nou",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "火",
+        "reading": "ka",
+        "meaning": "fire",
+        "example": "ひ",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "焼",
+        "reading": "shou",
+        "meaning": "bake",
+        "example": "やき",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-16 12:05:36",
+    "japanese": "食材はそのまま食うのもいいが あぶった方が栄養も増して美味いんじゃ",
+    "romaji": "shokuzai ha sono mama kuu no mo ii ga abutsu ta hou ga eiyou mo mashi te umai n ja",
+    "translation": "It's fine to eat the ingredients as they are, but if you're careful, you'll get more nutrition and it'll be tastier.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "食材",
+        "reading": "shokuzai",
+        "meaning": "ingredient",
+        "role": "noun",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "は",
+        "reading": "ha",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "その",
+        "reading": "sono",
+        "meaning": "that",
+        "role": "pre-noun adj.",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "まま",
+        "reading": "mama",
+        "meaning": "as it is",
+        "role": "noun",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "食う",
+        "reading": "kuu",
+        "meaning": "to eat",
+        "role": "verb",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "の",
+        "reading": "no",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "も",
+        "reading": "mo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "いい",
+        "reading": "ii",
+        "meaning": "good",
+        "role": "adjective",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "あぶっ",
+        "reading": "abutsu",
+        "meaning": "to warm (e.g. one's hands over a fire)",
+        "role": "verb",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "た",
+        "reading": "ta",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "方",
+        "reading": "hou",
+        "meaning": "direction",
+        "role": "noun",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "栄養",
+        "reading": "eiyou",
+        "meaning": "nutrition",
+        "role": "noun",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "も",
+        "reading": "mo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "増し",
+        "reading": "mashi",
+        "meaning": "to increase",
+        "role": "verb",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "て",
+        "reading": "te",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "美味い",
+        "reading": "umai",
+        "meaning": "skillful",
+        "role": "adjective",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "ん",
+        "reading": "n",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じゃ",
+        "reading": "ja",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "食",
+        "reading": "shoku",
+        "meaning": "eat",
+        "example": "しょく",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "材",
+        "reading": "zai",
+        "meaning": "lumber",
+        "example": "ざい",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "方",
+        "reading": "hou",
+        "meaning": "direction",
+        "example": "かた",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "栄",
+        "reading": "ei",
+        "meaning": "flourish",
+        "example": "ロン",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "養",
+        "reading": "you",
+        "meaning": "foster",
+        "example": "",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "増",
+        "reading": "zou",
+        "meaning": "increase",
+        "example": "ぞう",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "美",
+        "reading": "bi",
+        "meaning": "beauty",
+        "example": "び",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "味",
+        "reading": "mi",
+        "meaning": "flavor",
+        "example": "あじ",
+        "times_seen": 1,
+        "familiarity": "learning"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-16 16:02:03",
+    "japanese": "リンゴは こんがり焼いたぐらいが美味いんじ・",
+    "romaji": "ringo ha kongari yai ta gurai ga umai n ji ・",
+    "translation": "Apples are best when they're just slightly charred.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "リンゴ",
+        "reading": "ringo",
+        "meaning": "apple (fruit)",
+        "role": "noun",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "は",
+        "reading": "ha",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "こんがり",
+        "reading": "kongari",
+        "meaning": "well-cooked",
+        "role": "adverb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "焼い",
+        "reading": "yai",
+        "meaning": "to burn",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "た",
+        "reading": "ta",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ぐらい",
+        "reading": "gurai",
+        "meaning": "dark",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "美味い",
+        "reading": "umai",
+        "meaning": "skillful",
+        "role": "adjective",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "word": "ん",
+        "reading": "n",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じ",
+        "reading": "ji",
+        "meaning": "child",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "・",
+        "reading": "・",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "焼",
+        "reading": "shou",
+        "meaning": "bake",
+        "example": "やき",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "美",
+        "reading": "bi",
+        "meaning": "beauty",
+        "example": "び",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "kanji": "味",
+        "reading": "mi",
+        "meaning": "flavor",
+        "example": "あじ",
+        "times_seen": 2,
+        "familiarity": "learning"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-16 16:02:24",
+    "japanese": "さてさて・",
+    "romaji": "satesate ・",
+    "translation": "Well then…",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "さてさて",
+        "reading": "satesate",
+        "meaning": "well",
+        "role": "conjunction",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "・",
+        "reading": "・",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 1,
+        "familiarity": "learning"
+      }
+    ],
+    "kanji": []
+  },
+  {
+    "time": "2026-03-16 16:09:21",
+    "japanese": "こんなところに大きで。この友人がいるとは少しのう",
+    "romaji": "konna tokoro ni ooki de . kono yuujin ga iru to ha sukoshi nou",
+    "translation": "Such a place for a big one. It's a bit surprising that this friend is here.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "こんな",
+        "reading": "konna",
+        "meaning": "this sort of",
+        "role": "pre-noun adj.",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ところ",
+        "reading": "tokoro",
+        "meaning": "place",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "に",
+        "reading": "ni",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "大き",
+        "reading": "ooki",
+        "meaning": "big",
+        "role": "adjective",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "で",
+        "reading": "de",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "。",
+        "reading": ".",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "この",
+        "reading": "kono",
+        "meaning": "this",
+        "role": "pre-noun adj.",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "友人",
+        "reading": "yuujin",
+        "meaning": "friend",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "いる",
+        "reading": "iru",
+        "meaning": "to be (of animate objects)",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "と",
+        "reading": "to",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "は",
+        "reading": "ha",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "少し",
+        "reading": "sukoshi",
+        "meaning": "small quantity",
+        "role": "adverb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "のう",
+        "reading": "nou",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "大",
+        "reading": "dai",
+        "meaning": "large",
+        "example": "おお",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "友",
+        "reading": "yuu",
+        "meaning": "friend",
+        "example": "とも",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "人",
+        "reading": "jin",
+        "meaning": "person",
+        "example": "じん",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "少",
+        "reading": "shou",
+        "meaning": "few",
+        "example": "しょう",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-16 19:02:14",
+    "japanese": "焼きリンゴでも こしらえるとするかのう",
+    "romaji": "yaki ringo de mo koshiraeru to suru ka nou",
+    "translation": "Why don't you get me some baked apples, then?",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "焼き",
+        "reading": "yaki",
+        "meaning": "to burn",
+        "role": "verb",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "リンゴ",
+        "reading": "ringo",
+        "meaning": "apple (fruit)",
+        "role": "noun",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "word": "で",
+        "reading": "de",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "も",
+        "reading": "mo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "こしらえる",
+        "reading": "koshiraeru",
+        "meaning": "to make",
+        "role": "verb",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "と",
+        "reading": "to",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "する",
+        "reading": "suru",
+        "meaning": "to do",
+        "role": "verb",
+        "times_seen": 1,
+        "familiarity": "learning"
+      },
+      {
+        "word": "か",
+        "reading": "ka",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "のう",
+        "reading": "nou",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "焼",
+        "reading": "shou",
+        "meaning": "bake",
+        "example": "やき",
+        "times_seen": 2,
+        "familiarity": "learning"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-16 19:27:24",
+    "japanese": "た焼きリンゴでも こしらえるとするかのう",
+    "romaji": "ta yaki ringo de mo koshiraeru to suru ka nou",
+    "translation": "Go ahead and make yourself a baked apple, then.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "た",
+        "reading": "ta",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "焼き",
+        "reading": "yaki",
+        "meaning": "to burn",
+        "role": "verb",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "word": "リンゴ",
+        "reading": "ringo",
+        "meaning": "apple (fruit)",
+        "role": "noun",
+        "times_seen": 3,
+        "familiarity": "learning"
+      },
+      {
+        "word": "で",
+        "reading": "de",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "も",
+        "reading": "mo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "こしらえる",
+        "reading": "koshiraeru",
+        "meaning": "to make",
+        "role": "verb",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "word": "と",
+        "reading": "to",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "する",
+        "reading": "suru",
+        "meaning": "to do",
+        "role": "verb",
+        "times_seen": 2,
+        "familiarity": "learning"
+      },
+      {
+        "word": "か",
+        "reading": "ka",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "のう",
+        "reading": "nou",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "焼",
+        "reading": "shou",
+        "meaning": "bake",
+        "example": "やき",
+        "times_seen": 3,
+        "familiarity": "learning"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-16 19:29:14",
+    "japanese": "うん なんじゃ",
+    "romaji": "un nan ja",
+    "translation": "Hmm.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "うん",
+        "reading": "un",
+        "meaning": "yes",
+        "role": "interjection",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "なん",
+        "reading": "nan",
+        "meaning": "what",
+        "role": "pronoun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じゃ",
+        "reading": "ja",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": []
+  }
+]

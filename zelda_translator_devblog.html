@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Building a Real-Time Japanese Learning Companion for Zelda</title>
+  <style>
+    :root {
+      --bg: #1a1612;
+      --surface: #231f1a;
+      --border: #3a342c;
+      --text: #e8e0d4;
+      --muted: #a09080;
+      --accent: #c9a86c;
+      --accent2: #7ec8a0;
+      --accent3: #6bafd6;
+      --accent4: #d4847a;
+      --code-bg: #0f0d0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', serif;
+      font-size: 18px;
+      line-height: 1.8;
+      padding: 0 1rem;
+    }
+
+    .wrapper {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 4rem 0 6rem;
+    }
+
+    /* ── Header ── */
+    .post-header {
+      margin-bottom: 3rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 2.5rem;
+    }
+
+    .post-tag {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      line-height: 1.2;
+      font-weight: normal;
+      color: var(--text);
+      margin-bottom: 0.75rem;
+    }
+
+    .subtitle {
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-style: italic;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── TL;DR box ── */
+    .tldr {
+      background: var(--surface);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+      padding: 1.5rem 1.75rem;
+      margin: 2.5rem 0;
+    }
+
+    .tldr-label {
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+
+    .tldr p {
+      color: var(--text);
+      font-size: 0.97rem;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    /* ── Section headings ── */
+    h2 {
+      font-size: 1.55rem;
+      font-weight: normal;
+      color: var(--accent);
+      margin: 3.5rem 0 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--text);
+      margin: 2.2rem 0 0.6rem;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.03em;
+    }
+
+    h4 {
+      font-size: 0.9rem;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent2);
+      margin: 1.6rem 0 0.4rem;
+    }
+
+    /* ── Body text ── */
+    p { margin-bottom: 1.1rem; }
+
+    /* ── Code ── */
+    code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      background: var(--code-bg);
+      color: var(--accent2);
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.2rem 1.4rem;
+      overflow-x: auto;
+      margin: 1.2rem 0 1.6rem;
+      line-height: 1.6;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: 0.82rem;
+      color: #c9d7c0;
+    }
+
+    /* ── Pipeline diagram ── */
+    .pipeline {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.1rem 1.4rem;
+      margin: 1.2rem 0 1.6rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      color: var(--accent3);
+      line-height: 1.7;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.2rem 0 1.6rem;
+      font-size: 0.88rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.55rem 0.9rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    td {
+      padding: 0.5rem 0.9rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+
+    tr:nth-child(even) td { background: #1d1915; }
+
+    td code { font-size: 0.8em; }
+
+    /* ── Attempt blocks ── */
+    .attempt {
+      border-left: 2px solid var(--border);
+      padding-left: 1.2rem;
+      margin: 1.4rem 0;
+    }
+
+    .attempt-label {
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.3rem;
+    }
+
+    .attempt-label.fail { color: var(--accent4); }
+    .attempt-label.pass { color: var(--accent2); }
+
+    /* ── Callout / note ── */
+    .callout {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.2rem 1.4rem;
+      margin: 1.6rem 0;
+      font-size: 0.94rem;
+    }
+
+    .callout-icon {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-family: 'Courier New', monospace;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    /* ── Lessons learned ── */
+    .lesson {
+      margin: 2rem 0;
+      padding: 1.4rem 1.6rem;
+      background: var(--surface);
+      border-radius: 8px;
+    }
+
+    .lesson h3 {
+      margin-top: 0;
+      color: var(--accent);
+      font-family: Georgia, serif;
+      font-size: 1.05rem;
+      text-transform: none;
+      letter-spacing: 0;
+      margin-bottom: 0.5rem;
+    }
+
+    .lesson p { margin-bottom: 0; font-size: 0.95rem; }
+
+    /* ── Appendix ── */
+    .appendix {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2rem;
+      margin-top: 3rem;
+    }
+
+    .appendix h2 {
+      border: none;
+      padding: 0;
+      margin-top: 0;
+      font-size: 1.25rem;
+    }
+
+    /* ── Inline emphasis ── */
+    strong { color: var(--text); }
+    em { color: var(--muted); }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.4rem 1.8rem;
+      margin: 2rem 0 3rem;
+      font-size: 0.9rem;
+    }
+
+    .toc-title {
+      font-family: 'Courier New', monospace;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 0.8rem;
+    }
+
+    .toc ol {
+      padding-left: 1.4rem;
+      margin: 0;
+      line-height: 2;
+    }
+
+    .toc a {
+      color: var(--accent3);
+      text-decoration: none;
+    }
+
+    .toc a:hover { text-decoration: underline; }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 3rem 0;
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  HEADER                                                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <header class="post-header">
+    <div class="post-tag">Dev Blog · Japanese / NLP / Local LLM</div>
+    <h1>Building a Real-Time Japanese Learning Companion for Zelda</h1>
+    <p class="subtitle">A developer's journey through camera feeds, OCR, local LLMs, and NLP</p>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  TL;DR                                                     -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <div class="tldr">
+    <div class="tldr-label">What was built</div>
+    <p>
+      A Python script running on a MacBook Pro M1 Pro that reads a live camera feed from a Samsung S21 pointed at a TV, extracts Japanese dialogue from Breath of the Wild using Apple's native OCR framework, passes it through local NLP libraries for linguistic analysis, sends only the translation task to a local LLM via Ollama, and serves a real-time web UI at <code>localhost:5002</code>. Two modes: <strong>TRANSLATE</strong> for fast live translation while playing, and <strong>LEARN</strong> for a full word-by-word lesson with romaji, grammar notes, kanji breakdowns, vocab tracking with familiarity tiers, and a spaced-repetition quiz system. Entirely local. Entirely free. Built iteratively over multiple weeks.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  TABLE OF CONTENTS                                         -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <nav class="toc">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#intro">Introduction — The Problem and the Motivation</a></li>
+      <li><a href="#architecture">Architecture Evolution — The Three Major Pipelines</a></li>
+      <li><a href="#camera">Component — Camera Input</a></li>
+      <li><a href="#preprocessing">Component — Preprocessing</a></li>
+      <li><a href="#ocr">Component — OCR Engine</a></li>
+      <li><a href="#gating">Component — LLM Selection and Call Gating</a></li>
+      <li><a href="#learning">Component — The Learning System</a></li>
+      <li><a href="#ui">Component — The Web UI</a></li>
+      <li><a href="#operations">Operations — Startup, Setup, and Persistence</a></li>
+      <li><a href="#lessons">Lessons Learned</a></li>
+      <li><a href="#appendix">Appendix — Final Pipeline at a Glance</a></li>
+    </ol>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  1. INTRODUCTION                                           -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="intro">1. Introduction — The Problem and the Motivation</h2>
+
+  <p>The goal was simple on paper: play <em>The Legend of Zelda: Breath of the Wild</em> entirely in Japanese and use it as a living Japanese textbook. Every time an NPC speaks, instead of skipping past the dialogue, understand it. Every kanji encountered repeatedly should become familiar over time. By the end of the game, you should have meaningfully progressed in the language — passively, through play.</p>
+
+  <p>No off-the-shelf tool handled this specific scenario. Browser extensions, phone apps, and OCR tools all assumed you were reading text on a screen you controlled. The game was on a TV. The dialogue was rendered in Zelda's own stylised font. The text animated letter by letter. The entire pipeline had to run locally — no cloud APIs, no subscription fees, no sending game footage to a third-party server.</p>
+
+  <p>This post traces the full development arc: from the first architecture through each major pivot, then through the detailed engineering of every component from camera input to web interface.</p>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  2. ARCHITECTURE                                           -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="architecture">2. Architecture Evolution — The Three Major Pipelines</h2>
+
+  <p>The system went through three substantially different architectures before arriving at the final design. Understanding these iterations explains every technical choice in the current codebase.</p>
+
+  <h3>2.1 Architecture 1 — OCR + Text LLM (Tesseract + qwen2.5:7b)</h3>
+
+  <div class="pipeline">S21 camera → OpenCV crop → Tesseract OCR → qwen2.5:7b → Flask UI</div>
+
+  <p>The first architecture was the most natural starting point: a dedicated OCR engine extracts Japanese text from the camera frame, then a text LLM translates and explains it.</p>
+
+  <table>
+    <thead>
+      <tr><th>Layer</th><th>Tool</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Camera</td><td>Samsung S21 via IP Webcam (MJPEG over WiFi)</td></tr>
+      <tr><td>Frame grab</td><td>OpenCV</td></tr>
+      <tr><td>OCR</td><td>Tesseract (Japanese language model)</td></tr>
+      <tr><td>Translation</td><td>qwen2.5:7b via Ollama</td></tr>
+      <tr><td>UI</td><td>Flask + browser polling</td></tr>
+    </tbody>
+  </table>
+
+  <p>The problem was Tesseract. It produced garbage output on every frame — not occasionally, consistently. The game's stylised font on a semi-transparent dialogue box sitting on top of active gameplay was beyond what Tesseract could handle. Extensive preprocessing (HSV masking, grayscale thresholding, dilation, character count filters, Japanese character validation) helped at the margins but never produced stable output. Tesseract is designed for printed document fonts.</p>
+
+  <h3>2.2 Architecture 2 — Pure Vision LLM (qwen2.5vl:7b — tried and abandoned)</h3>
+
+  <div class="pipeline">S21 camera → OpenCV crop → qwen2.5vl:7b (image → translation) → Flask UI</div>
+
+  <p>With Tesseract failing, the pivot was to eliminate OCR entirely. Vision-language models receive an image directly and return both extracted text and translation in a single call. qwen2.5vl:7b handled the stylised Zelda font far better than Tesseract, understood context, and dealt with furigana naturally.</p>
+
+  <p>The hardware reality on a 16 GB M1 Pro killed the approach:</p>
+
+  <table>
+    <thead>
+      <tr><th>Component</th><th>RAM</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Text transformer (Q4_K_M)</td><td>~4.5 GB</td></tr>
+      <tr><td>Vision encoder (F16, unquantized)</td><td>~9.0 GB</td></tr>
+      <tr><td>KV cache</td><td>~0.5 GB</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>~14 GB</strong></td></tr>
+    </tbody>
+  </table>
+
+  <p>The vision encoder stores all 32 of its transformer layers in full F16 precision — a property of the model architecture, not user-configurable. 14 GB on a 16 GB machine left almost nothing for the OS. <code>ollama ps</code> showed a 62%/38% CPU/GPU split. On Apple Silicon, any significant CPU fraction means weights are being paged off unified memory. Normal inference: 9 seconds. Under swap pressure: 60 seconds. At worst: <code>memory_pressure</code> showed 54 MB free RAM with 1.7 million swap-outs.</p>
+
+  <p>Every tuning parameter was tried: <code>num_ctx</code> reduced to 1024, <code>num_batch</code> set to 1, <code>OLLAMA_FLASH_ATTENTION</code> enabled, <code>OLLAMA_GPU_LAYERS</code> tried (has no effect on Apple Silicon — this flag is for NVIDIA/AMD discrete GPUs only). None solved the fundamental constraint: a 14 GB model on a 16 GB machine will always split CPU/GPU.</p>
+
+  <p>LLaVA-Phi3 was tested as a lighter alternative (~2.9 GB). Japanese OCR quality was too poor to be useful. The pure vision LLM architecture was abandoned.</p>
+
+  <h3>2.3 Architecture 3 — OCR + Text LLM + NLP Libraries <em>(Final)</em></h3>
+  <p><em>Apple Vision + qwen2.5:7b + fugashi/pykakasi/jamdict</em></p>
+
+  <div class="pipeline">S21 camera → OpenCV crop → preprocess → Apple Vision OCR
+           → fugashi + pykakasi + jamdict + rule-based grammar
+           → qwen2.5:7b (translation only)
+           → Flask UI (TRANSLATE + LEARN modes)</div>
+
+  <p>The final architecture gives each task to the tool best suited for it:</p>
+
+  <table>
+    <thead>
+      <tr><th>Tool</th><th>Task</th><th>Latency</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Apple Vision</td><td>Image → Japanese text</td><td>~100 ms</td></tr>
+      <tr><td>fugashi/MeCab</td><td>Text → tokens + POS tags</td><td>~50 ms</td></tr>
+      <tr><td>pykakasi</td><td>Tokens → romaji</td><td>~10 ms</td></tr>
+      <tr><td>jamdict</td><td>Tokens → meanings</td><td>~100 ms</td></tr>
+      <tr><td>Rule-based</td><td>POS → grammar patterns</td><td>~5 ms</td></tr>
+      <tr><td>qwen2.5:7b</td><td>Japanese → English (translation only)</td><td>~2,500 ms</td></tr>
+    </tbody>
+  </table>
+
+  <p>The LLM now does exactly one thing: translate. Every other part of the lesson is generated by deterministic libraries that are faster and more accurate than an LLM for those specific tasks.</p>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  3. CAMERA                                                 -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="camera">3. Component — Camera Input</h2>
+
+  <h3>3.1 Capture Card vs. Phone Camera</h3>
+
+  <p>A capture card would have been the cleanest technical solution — stable 1080p digital signal from the Switch dock, fixed pixel coordinates, no lighting variation or compression. But it costs money, requires USB to the laptop, and adds hardware to manage. The phone approach is free, wireless, and uses existing hardware. The trade-offs are real but acceptable: camera angle can drift, glass introduces glare, JPEG compression adds per-frame noise. The code accepts any MJPEG video source — swapping to a capture card means changing one URL constant.</p>
+
+  <h3>3.2 scrcpy — Tried and Abandoned</h3>
+
+  <p>The first attempt was scrcpy, a tool that mirrors an Android device's screen over ADB. Full setup was completed: Developer Options enabled on the S21, wireless ADB pairing, scrcpy showing the camera feed in a window. The problem came when trying to read from Python.</p>
+
+  <p>scrcpy registers its output as a virtual camera device on macOS, but OpenCV read only black frames. <code>CAP_AVFOUNDATION</code> was tried explicitly. Device indices 0 and 1 were tested with color checks. Camera permissions were verified in System Settings. The device reported <code>ret=True</code> and a valid 1080×1920 resolution, but every frame had mean color <code>[0, 0, 0]</code> — pure black.</p>
+
+  <p>The <code>--no-window</code> flag was tried to run scrcpy headlessly. This immediately disabled the video stream: "No video playback, no video mirroring." scrcpy's virtual camera only works while it is actively displaying in a window. OBS Virtual Camera was identified as a proper workaround, but that added another dependency. The entire scrcpy path was abandoned.</p>
+
+  <h3>3.3 IP Webcam — The Working Solution</h3>
+
+  <p>IP Webcam turns the S21 into an MJPEG HTTP server on the local network. OpenCV reads it directly via URL — no ADB, no virtual camera, no window focus issues:</p>
+
+  <pre><code>cap = cv2.VideoCapture("http://192.168.1.107:8080/video")</code></pre>
+
+  <p>The connection was validated with a minimal test script before wiring into the main pipeline. DroidCam was evaluated but its free tier caps at 480p — complex kanji glyphs at 480p lose strokes and become ambiguous to OCR. IP Webcam streams at full phone resolution.</p>
+
+  <h3>3.4 Capture Loop Design</h3>
+
+  <p>The capture loop runs in a dedicated daemon thread. A key early discovery: macOS Cocoa constraints mean <code>cv2.imshow()</code> cannot be called from a background thread — attempting this throws immediately. Rather than restructuring threading, the debug preview was changed to writing <code>~/Downloads/preprocessed_crop.jpg</code> on every iteration. macOS Preview auto-refreshes open files, giving a live view of exactly what the OCR engine receives with no threading complexity. This pattern was used throughout development whenever OCR behaviour needed to be diagnosed.</p>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  4. PREPROCESSING                                          -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="preprocessing">4. Component — Preprocessing</h2>
+
+  <h3>4.1 The Input Challenge</h3>
+
+  <p>Zelda's dialogue box is white text on a dark semi-transparent rounded rectangle sitting on top of active gameplay. The camera adds angle distortion, JPEG compression, and occasional glare. Preprocessing needed to isolate clean text pixels without destroying the characters in the process.</p>
+
+  <h3>4.2 Finding the Dialogue Box</h3>
+
+  <p>The first crop attempt used hard-coded percentages. It worked but broke whenever the camera moved. An LLM "discovery mode" was tried — sending the full frame to the vision model every 2 seconds to get dialogue box coordinates as JSON. Detection calls took ~55 seconds and returned inconsistent bounds. Unusable.</p>
+
+  <p>The permanent solution was <code>calibrate.py</code>: a one-time setup tool that grabs a frame from the camera, opens it in an OpenCV window using <code>cv2.selectROI</code>, lets the user draw the bounding box, and saves it to <code>bounds.json</code>. The main script reads this on startup and fails immediately if it's missing.</p>
+
+  <h3>4.3 Image Preprocessing Pipeline</h3>
+
+  <div class="attempt">
+    <div class="attempt-label fail">Attempt 1 — HSV Masking ✗</div>
+    <p>Isolate white pixels using HSV colour space. The dark dialogue background fell in the same HSV range. Entire output was white. Abandoned.</p>
+  </div>
+
+  <div class="attempt">
+    <div class="attempt-label fail">Attempt 2 — Grayscale Threshold at 180 ✗</div>
+    <p>The dialogue background sits at gray values 40–80; text is at 220+. Thresholding at 180 cuts between them. Added 2×2 dilation to reconnect strokes broken by JPEG compression. Better, but also caught bright game-world pixels (sunlight, fire).</p>
+  </div>
+
+  <div class="attempt">
+    <div class="attempt-label fail">Attempt 3 — CLAHE ✗</div>
+    <p>Contrast Limited Adaptive Histogram Equalisation sharpened text strokes but amplified background texture, producing more OCR noise. Abandoned.</p>
+  </div>
+
+  <div class="attempt">
+    <div class="attempt-label pass">Attempt 4 — White-on-Black Extraction ✓ (Final)</div>
+    <p>Rather than trying to isolate the dialogue box while preserving game context, reduce the entire image to its essential signal: everything above brightness 200 becomes white; everything else becomes black. Combined with edge kill (zero out 8 px left/right margins), 2× INTER_CUBIC upscale, a 20 px solid black padding border, and JPEG quality set to 100 to preserve dakuten dots. The threshold was later tuned from 200 to 160 for scenes where Zelda uses a grunge/eroded font style.</p>
+  </div>
+
+  <h3>4.4 Furigana Masking</h3>
+
+  <p>Zelda uses furigana — small kana printed above kanji to show their reading. Every OCR engine read these as separate lines of text, producing garbled output. Several approaches were tried:</p>
+
+  <div class="attempt">
+    <div class="attempt-label fail">Attempt 1 — Prompt Engineering ✗</div>
+    <p>Tell the model to ignore small characters. Failed — 3b models couldn't follow this reliably across varied frames.</p>
+  </div>
+
+  <div class="attempt">
+    <div class="attempt-label fail">Attempt 2 — Blob Size Filtering ✗</div>
+    <p>Find all text contours, filter out small ones. Background noise dominated the contour list, making median character height unreliable.</p>
+  </div>
+
+  <div class="attempt">
+    <div class="attempt-label fail">Attempt 3 — Row Density (Initial) ✗</div>
+    <p>Sum bright pixels per horizontal row to build a density profile, find peaks, black out furigana gaps. Failed on short single-line dialogue where furigana rows crossed the max-based threshold.</p>
+  </div>
+
+  <div class="attempt">
+    <div class="attempt-label fail">Attempt 4 — Walk-Back Algorithm ✗</div>
+    <p>Detect where each text band starts, walk upward to find furigana, black out only that region. Produced too many edge cases for reliable production use.</p>
+  </div>
+
+  <div class="attempt">
+    <div class="attempt-label pass">Attempt 5 — Row Density with Median ✓ (Final)</div>
+    <p>Same peak detection but replacing <code>max</code> with <code>median</code> for the threshold:</p>
+    <pre><code>non_zero = row_density[row_density > 0]
+median_density = float(np.median(non_zero))
+furigana_threshold = median_density * 0.42</code></pre>
+    <p>Using <code>max</code> was skewed by one very dense row. <code>median</code> is stable regardless of sentence length or line count. The 0.42 multiplier was tuned by trial on real game frames.</p>
+  </div>
+
+  <div class="callout">
+    <div class="callout-icon">💡 Biggest win</div>
+    Moving the phone camera closer to the TV was more effective than any amount of image preprocessing at eliminating OCR errors. Better source material beats better compensation downstream.
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  5. OCR                                                    -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="ocr">5. Component — OCR Engine</h2>
+
+  <h3>5.1 Tesseract</h3>
+  <p>The starting OCR engine. Trained on printed document fonts. Produced garbage output on Zelda's stylised dialogue font. The <code>jpn_vert</code> (vertical Japanese) model was also tried — no meaningful improvement. Tesseract was not designed for game UI.</p>
+
+  <h3>5.2 manga-ocr</h3>
+  <p>manga-ocr is a ~400 MB specialised Japanese OCR model fine-tuned on manga images. Game fonts are stylistically closer to manga than printed documents. Two preprocessing scenarios were tested. In both cases hallucination was a significant problem — with the near-raw crop it produced complete hallucinations (tokens like 定款, チェックス, 鹿児クエ with none of the actual dialogue); with the full white-on-black preprocessed image, it was trained on black ink on white paper, so the inverted distribution caused continued hallucination. manga-ocr also added ~638 ms per call versus Apple Vision's ~100 ms. Dropped.</p>
+
+  <h3>5.3 Apple Vision Framework (Final)</h3>
+
+  <p>Apple Vision (<code>VNRecognizeTextRequest</code>) is built into macOS and runs on the M1 Neural Engine — zero RAM footprint, zero model download, Japanese supported natively. Integration via pyobjc:</p>
+
+  <pre><code>import Vision
+request = Vision.VNRecognizeTextRequest.alloc().init()
+request.setRecognitionLanguages_(["ja"])
+request.setUsesLanguageCorrection_(False)</code></pre>
+
+  <p><code>setUsesLanguageCorrection_(False)</code> is critical — with autocorrect enabled, macOS would mangle archaic NPC speech (<code>かのう</code>, <code>のう</code>, <code>じゃ</code>) trying to normalise it to modern Japanese. OCR timing: ~100 ms on M1 Neural Engine.</p>
+
+  <div class="callout">
+    <div class="callout-icon">Why large models read game images easily</div>
+    Large multimodal models process images contextually — they understand what a dialogue box is, can distinguish furigana from main text by knowing what furigana is, and use surrounding context to disambiguate ambiguous characters. Local OCR engines are pixel pattern matchers with no semantic understanding of what they are looking at.
+  </div>
+
+  <h3>5.4 OCR Stability — Consensus Mechanism</h3>
+
+  <p>Apple Vision occasionally misreads on individual frames — stray kana prefix, a dakuten flip (こ read as ご), a missing っ. Rather than fixing every individual misread in post-processing, a consensus mechanism requires 4 identical consecutive OCR reads (after normalisation: spaces and punctuation stripped) before the text is considered settled and passed to the LLM. The UI shows "Reading... (2/4)" while building confidence.</p>
+
+  <p>A fuzzy dedup variant handles the dakuten ambiguity case: sentences differing by only 1 character count as identical, preventing duplicate LLM calls from the same dialogue box when OCR flickers between こ and ご on consecutive frames.</p>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  6. LLM GATING                                             -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="gating">6. Component — LLM Selection and Call Gating</h2>
+
+  <h3>6.1 When to Call the LLM — The Gate Stack</h3>
+
+  <p>Knowing when to fire an LLM call was as important as having working OCR. Several independent problems needed solving simultaneously.</p>
+
+  <h4>Typewriter Animation</h4>
+  <p>Zelda displays dialogue one character at a time. A naive pipeline fires on every frame and generates lessons on incomplete sentences. The stability consensus from section 5.4 handles this.</p>
+
+  <h4>Gameplay Motion False Triggers</h4>
+  <p>Active play causes constant screen change. Fix: only watch the bottom ~30% of the TV crop (the dialogue zone) rather than the full frame. Link moving in the upper portion of the scene produces no diff in the dialogue zone.</p>
+
+  <h4>Brightness Gate</h4>
+  <p>Skip OCR entirely if the crop is too bright (open gameplay, no dark dialogue box visible) or too dark (cutscene fade). Constants <code>BRIGHTNESS_GATE_HIGH = 80.0</code> and <code>BRIGHTNESS_GATE_LOW = 10.0</code>, tuned from real gameplay data in the CSV log.</p>
+
+  <h4>Hallucination Gate</h4>
+  <p>When no dialogue box is visible, Apple Vision sometimes returns noise — very short strings or isolated characters. A minimum length gate (fewer than 5 Japanese characters) rejects these and resets the stability counter.</p>
+
+  <h4>The LLM-as-Detector Experiment</h4>
+  <p>The idea of letting the LLM decide when to translate was explored — pass every frame, return ANIMATING / NO_DIALOGUE / DUPLICATE / or a translation. This would eliminate all the pixel diff logic. The problem: 9 seconds per call means 9 seconds just to confirm the screen hasn't changed. Pixel diff runs in microseconds. Abandoned.</p>
+
+  <h4>CSV Logging for Threshold Tuning</h4>
+  <p>Pixel diff and brightness were logged every frame alongside LLM output. This data revealed a natural three-region pattern in pixel diff values:</p>
+
+  <table>
+    <thead>
+      <tr><th>Pixel Diff Range</th><th>Interpretation</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Below lower threshold</td><td>Static screen, same dialogue box</td><td>Skip</td></tr>
+      <tr><td>Lower ≤ diff ≤ upper</td><td>Dialogue changed or new box appeared</td><td>Fire LLM</td></tr>
+      <tr><td>Above upper threshold</td><td>Full scene change / gameplay motion</td><td>Skip</td></tr>
+    </tbody>
+  </table>
+
+  <p>This "Goldilocks zone" means the LLM only fires when change is consistent with dialogue box activity, not general gameplay motion.</p>
+
+  <h4>Final Gate Order (cheapest to most expensive)</h4>
+  <pre><code>1. Brightness gate         → skip if too bright or too dark
+2. Pixel diff check        → only proceed if dialogue zone changed
+3. Empty OCR check         → reset stability, skip
+4. Minimum length &lt; 5      → reset stability, skip
+5. Stability consensus     → skip until 4 identical reads
+6. Fuzzy dedup             → skip if ≤1 char different from last
+→ Fire LLM</code></pre>
+
+  <h3>6.2 LLM Selection for Translation</h3>
+
+  <table>
+    <thead>
+      <tr><th>Model</th><th>Verdict</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>LLaVA-Phi3</td><td>Poor Japanese quality, unnatural English. Eliminated.</td></tr>
+      <tr><td>qwen2.5:1.5b (~986 MB)</td><td>Slipped into Chinese mid-sentence on food vocabulary. Eliminated.</td></tr>
+      <tr><td>qwen2.5:3b (~2 GB)</td><td>Meaningful improvement but inconsistent on dialect forms.</td></tr>
+      <tr><td><strong>qwen2.5:7b (~4.7 GB)</strong></td><td><strong>Final choice.</strong> Handles Zelda's archaic NPC speech reliably, captures nuance, produces natural English matching the speaker's register. ~2,500 ms per call.</td></tr>
+    </tbody>
+  </table>
+
+  <p>With Apple Vision handling OCR there's no vision encoder overhead, so the 7b fits comfortably in 16 GB RAM alongside the OS. <code>OLLAMA_FLASH_ATTENTION=1</code> was set permanently in <code>~/.zshrc</code> — reduces peak memory via tiled computation. Note: <code>OLLAMA_GPU_LAYERS</code> has no effect on Apple Silicon; it is an NVIDIA/AMD flag.</p>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  7. LEARNING SYSTEM                                        -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="learning">7. Component — The Learning System</h2>
+
+  <h3>7.1 Design Decisions Upfront</h3>
+
+  <p><strong>Two parallel pipelines.</strong> TRANSLATE runs continuously on its own thread regardless of which tab is visible. LEARN generates lessons and locks the learn panel until acknowledged. Switching between tabs does not pause either pipeline.</p>
+
+  <p><strong>Acknowledge-to-proceed.</strong> A lesson does not auto-advance. The user presses "Got it" to commit vocabulary to disk and allow the next lesson. This was a deliberate learning design choice — passive streaming of lessons at game speed produces no learning. Making the user actively commit changes the dynamic from "subtitles" to an actual learning interaction.</p>
+
+  <p><strong>Queue-one model.</strong> If multiple dialogue boxes pass while a lesson is pending, only the most recent is queued. If 5 boxes scroll past, boxes 1–4 are lost and box 5 is queued. This prevents a backlog of unreviewed lessons.</p>
+
+  <p><strong>Response options as content.</strong> Zelda dialogue includes player-selectable responses. Rather than cropping these out as noise, the lesson includes their translations — choosing a response is part of playing the game.</p>
+
+  <h3>7.2 The Latency Problem — LLM Doing Everything</h3>
+
+  <p>The first LEARN implementation asked the LLM to generate the entire lesson in one JSON response: romaji, word-by-word breakdown, grammar notes, kanji analysis, progress notes. Results:</p>
+
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Quality</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Translation</td><td>Consistently good</td></tr>
+      <tr><td>Romaji</td><td>Mostly correct — occasional wrong readings that would actively mislead a learner</td></tr>
+      <tr><td>Word breakdown</td><td>Missed particles inconsistently</td></tr>
+      <tr><td>Kanji detection</td><td>Incomplete — 7 kanji in a sentence might get 2–3 in output</td></tr>
+      <tr><td>Grammar notes</td><td>Unreliable</td></tr>
+    </tbody>
+  </table>
+
+  <p>Generation time: 17,000–35,000 ms per call. Essentially unusable for real-time gameplay. Prompt trimming was tried — removing fields, truncating output, reducing verbosity. None made a meaningful dent. The problem was structural: the LLM was doing systematic linguistic analysis for which it was both slow and unreliable. No amount of prompt engineering fixes a task mismatch.</p>
+
+  <h3>7.3 The NLP Pivot — Dedicated Libraries</h3>
+
+  <p>The decisive question: what is the LLM actually good at here? Natural language translation — understanding nuance, dialect, register. Everything else in the lesson is a solved problem with deterministic tools.</p>
+
+  <h4>fugashi (MeCab morphological analyser)</h4>
+  <p>Splits Japanese text into morphemes with full POS tagging. Knows that こしらえる is a causative volitional verb, は is a topic marker particle, かのう is an archaic dialectal sentence-ender. POS tags are mapped to English labels via <code>_POS_LABELS</code>. Without this, raw MeCab 4-character POS strings leak into the UI — a production bug found when 連体詞 appeared in the breakdown table.</p>
+
+  <h4>pykakasi</h4>
+  <p>Converts Japanese to romaji. Deterministic. Always correct. Generated per-token from MeCab segmentation, producing clean word boundaries.</p>
+
+  <h4>jamdict</h4>
+  <p>Dictionary lookups via JMdict and KANJIDIC. Key integration lessons: <code>jamdict-data</code> is a separate pip package from <code>jamdict</code> — installing <code>jamdict</code> alone produces silent "unable to open database file" failures that look like code bugs. Conjugated verb forms have no dictionary entry; fix is to use <code>word.feature.lemma</code> (the MeCab dictionary form) for lookups. Single-character grammar particles are excluded from dictionary lookup via a <code>_SKIP_VOCAB</code> set to avoid wrong homophone matches.</p>
+
+  <h4>Rule-Based Grammar Detection</h4>
+  <p>Common JLPT N5/N4 patterns are matched against the MeCab POS sequence: te-form progressives (〜ている), polite requests (〜てください), want expressions (〜たい), reason markers (〜から/ので), sentence-ending particles, conditionals. No LLM. No latency. No hallucinations.</p>
+
+  <p>Result of the pivot:</p>
+
+  <table>
+    <thead>
+      <tr><th></th><th>Time per learn call</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Before NLP pivot</td><td>17,000–35,000 ms</td></tr>
+      <tr><td>After NLP pivot</td><td>~200 ms (NLP) + ~2,500 ms (translation) = <strong>~2,700 ms</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.4 Vocabulary Tracking and Familiarity</h3>
+
+  <p>Every acknowledged lesson writes its words and kanji to <code>vocab.json</code>. Counting is opt-in — only acknowledged lessons increment <code>times_seen</code>. This reflects genuine engagement: you might see the same NPC line 10 times without ever paying attention to it.</p>
+
+  <p>Familiarity uses coloured underlines (not background highlights, which make white text on coloured backgrounds unreadable at large font sizes):</p>
+
+  <table>
+    <thead>
+      <tr><th>Exposure</th><th>Underline</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>0 times seen</td><td style="color:#6bafd6">■ Blue</td><td>New</td></tr>
+      <tr><td>1–9 times seen</td><td style="color:#c9a86c">■ Yellow</td><td>Learning</td></tr>
+      <tr><td>10+ times seen</td><td style="color:#7ec8a0">■ Green</td><td>Familiar</td></tr>
+    </tbody>
+  </table>
+
+  <p>Once ≥3 quiz recalls are available, familiarity becomes accuracy-based. A word seen 15 times but consistently missed in quizzes correctly stays in "learning." Exposure alone is not a reliable proxy for retention.</p>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  8. WEB UI                                                 -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="ui">8. Component — The Web UI</h2>
+
+  <h3>8.1 Flask + Polling Architecture</h3>
+
+  <p>The UI is a single-page HTML template served by Flask. The browser polls <code>/state</code> every 500 ms and updates the DOM in place — no full page refreshes, no WebSockets. The <code>/preview</code> endpoint streams the preprocessed camera frame as an MJPEG response, giving a real-time view of exactly what Apple Vision is receiving.</p>
+
+  <h3>8.2 TRANSLATE and LEARN Tabs</h3>
+
+  <p><strong>TRANSLATE mode</strong> is always live. Shows Japanese text with familiarity underlines, romaji, and English translation. No lesson, no interruption. For playing at pace.</p>
+
+  <p><strong>LEARN mode</strong> shows the full lesson: word breakdown table (word / reading / meaning / grammar role / familiarity), grammar pattern card, kanji card with examples, acknowledge bar. Locks until "Got it." Switching tabs does not affect either pipeline. The MJPEG preview is visible only in TRANSLATE mode — seeing live camera output while a frozen lesson was on screen created a visual conflict.</p>
+
+  <h3>8.3 Metrics and Pipeline Visibility</h3>
+
+  <p>Per-component timing is tracked and surfaced in the UI:</p>
+
+  <pre><code>translate_calls  /  translate_ocr_ms  /  translate_llm_ms
+learn_calls      /  learn_ocr_ms      /  learn_nlp_ms  /  learn_llm_ms</code></pre>
+
+  <p>These numbers made every architectural change immediately visible: the OCR bar shrank from ~638 ms to ~100 ms when Apple Vision replaced manga-ocr; the learn LLM bar dropped from ~25,000 ms to ~2,500 ms after the NLP pivot.</p>
+
+  <h3>8.4 The Quiz System</h3>
+
+  <p>After <code>QUIZ_EVERY</code> acknowledged lessons (default 10), a quiz fires automatically and blocks lesson generation until completed or quit. Cards are built from the N most recent lessons and randomly sampled at n/4 to ensure each quiz is a genuinely different test (the initial version used every word from every lesson, producing 60+ card quizzes). <code>lessons_since_quiz</code> is persisted to disk — without persistence, closing the script would reset the counter and a quiz might never trigger if the user consistently restarted before reaching <code>QUIZ_EVERY</code>.</p>
+
+  <h3>8.5 Lesson History Sidebar</h3>
+
+  <p>The last 10 acknowledged lessons are displayed in a sidebar as clickable Japanese text entries. Clicking reopens the full lesson detail. This provides lightweight review of recent dialogue without requiring a quiz.</p>
+
+  <h3>8.6 UI Polish — Fonts, Colours, Eye Strain</h3>
+
+  <p>At initial font sizes, kanji on a Retina display at arm's length caused visible eye strain — strokes were too small to read comfortably. Font sizes were increased significantly so the main panel can be read at a glance while playing, not squinted at while sitting at a desk.</p>
+
+  <p>The original colour scheme (Catppuccin Mocha: near-black background with vivid saturated accents) caused eye fatigue during extended sessions, particularly when scrolling. Updated to a warm dim palette: dark brown-black background, softer accent colours.</p>
+
+  <p>DM Sans (English) and Space Mono (romaji) were replaced with Nunito — a rounded, full-stroke font that reads well at large display sizes. Scroll jitter caused by heavy text reflow was fixed by adding <code>will-change: transform</code> and <code>transform: translateZ(0)</code> to the scroll container, forcing GPU compositing. <code>word-break: break-all</code> was replaced with <code>overflow-wrap: break-word</code>, which handles Japanese text wrapping more naturally.</p>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  9. OPERATIONS                                             -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="operations">9. Operations — Startup, Setup, and Persistence</h2>
+
+  <h3>9.1 Startup Script</h3>
+
+  <p><code>start_zelda_translator.sh</code> automates the full startup sequence: check Python, check and install missing Python dependencies, check Ollama is installed, check <code>qwen2.5:7b</code> is pulled, check <code>bounds.json</code> exists, launch <code>zelda_translator.py</code>.</p>
+
+  <p>An early version used bash associative arrays (<code>declare -A</code>). This failed on macOS with "declare: -A: invalid option" — macOS ships bash 3.2 by default to avoid GPL v3 licensing. Bash associative arrays require bash 4.0+. Fixed by replacing with simple paired-list logic. The script is macOS-only — <code>pyobjc-framework-Vision</code> does not exist on Windows.</p>
+
+  <h3>9.2 Model Unload on Exit</h3>
+
+  <p>Ollama keeps models loaded in unified memory after use. On a 16 GB M1 Pro, failing to unload the 7b model after exit wastes ~4.7 GB. A <code>finally</code> block in the entry point explicitly unloads on Ctrl+C:</p>
+
+  <pre><code>def unload_model():
+    requests.post(OLLAMA_URL,
+                  json={"model": TRANSLATION_MODEL, "keep_alive": 0})</code></pre>
+
+  <h3>9.3 Persistence Files</h3>
+
+  <table>
+    <thead>
+      <tr><th>File</th><th>Contents</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>vocab.json</code></td><td>Words and kanji with times_seen, recall stats, familiarity tiers, first/last seen dates, example sentence</td></tr>
+      <tr><td><code>lessons.json</code></td><td>Full lesson archive. Used to build quizzes (last N lessons) and populate the history sidebar</td></tr>
+      <tr><td><code>bounds.json</code></td><td>Camera crop coordinates from calibrate.py. Single source of truth for all cropping in the pipeline</td></tr>
+      <tr><td><code>pixel_llm_log.csv</code></td><td>Per-frame log: timestamp, pixel_diff, brightness, japanese, english, raw_llm_response. Used during development to tune brightness and diff thresholds</td></tr>
+    </tbody>
+  </table>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  10. LESSONS LEARNED                                       -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <h2 id="lessons">10. Lessons Learned</h2>
+
+  <div class="lesson">
+    <h3>Use the right tool for each layer</h3>
+    <p>The single biggest improvement came from stopping the attempt to use one model for everything. Apple Vision for OCR — built-in, zero RAM, Neural Engine, ~100 ms. Deterministic NLP libraries for linguistic analysis — fast and more accurate than a 7b model at segmentation, dictionary lookup, and POS tagging. LLM for translation only — one task it does reliably. Each layer became more accurate and faster when doing what it was designed for.</p>
+  </div>
+
+  <div class="lesson">
+    <h3>Hardware constraints drive architecture</h3>
+    <p>16 GB unified memory sounds like plenty until a vision LLM allocates 14 GB for weights and a KV cache. Every major architecture decision — dropping the vision LLM, splitting OCR from translation, choosing text-only models — was driven by hitting RAM limits on real hardware. The architecture is not an abstract design; it is the shape that fits inside the machine.</p>
+  </div>
+
+  <div class="lesson">
+    <h3>Physical setup is part of the system</h3>
+    <p>Moving the camera closer to the TV was more effective than any amount of image preprocessing at eliminating OCR errors. Better source material beats better compensation downstream.</p>
+  </div>
+
+  <div class="lesson">
+    <h3>Log everything while tuning</h3>
+    <p>CSV logging of brightness, pixel diff, OCR output, and timing at every frame was essential for finding workable threshold values. The debug habit of saving the preprocessed frame to disk on every iteration saved hours of guessing about why OCR was behaving unexpectedly.</p>
+  </div>
+
+  <div class="lesson">
+    <h3>Gate early, gate hard</h3>
+    <p>The multi-gate validation pipeline eliminates nearly all unnecessary LLM calls at microsecond cost. The ordering matters: reject the cheapest failures first. Each gate prevents the next from running. The LLM call is the last resort, not the first.</p>
+  </div>
+
+  <div class="lesson">
+    <h3>User pacing is a feature</h3>
+    <p>The acknowledge-to-proceed flow forces the system to wait for the user. This felt like a constraint during design but became one of the most important decisions — passive streaming of lessons at game speed produces no learning. Making the user actively commit before moving on changes the dynamic from "translator with subtitles" to an actual learning tool.</p>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!--  APPENDIX                                                  -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <div class="appendix" id="appendix">
+    <h2>Appendix — Final Pipeline at a Glance</h2>
+
+    <h3>Input</h3>
+    <p>IP Webcam MJPEG stream from Samsung S21 over WiFi to MacBook M1 Pro. Any MJPEG source works — one URL constant to change.</p>
+
+    <h3>Preprocessing</h3>
+    <pre><code>Crop to bounds.json (from calibrate.py)
+Threshold at 160 (white text → white, everything else → black)
+Edge kill 8px left/right → 2x INTER_CUBIC upscale → 20px black border
+Row density furigana masking (median * 0.42 threshold, PEAK_PADDING)</code></pre>
+
+    <h3>Gate Stack (cheapest to most expensive)</h3>
+    <pre><code>Brightness gate → pixel diff → empty → min length →
+stability (4 reads) → fuzzy dedup (≤1 char) → fire LLM</code></pre>
+
+    <h3>OCR</h3>
+    <p>Apple Vision, Japanese, no autocorrect (~100 ms per call)</p>
+
+    <h3>Mode Timings</h3>
+    <table>
+      <thead>
+        <tr><th>Mode</th><th>Step</th><th>Tool</th><th>Time</th></tr>
+      </thead>
+      <tbody>
+        <tr><td rowspan="2"><strong>TRANSLATE</strong> (~2,500 ms)</td><td>Translation + romaji</td><td>qwen2.5:7b</td><td>~2,500 ms</td></tr>
+        <tr><td>Known words shown with familiarity underlines</td><td>vocab.json lookup</td><td>&lt;1 ms</td></tr>
+        <tr><td rowspan="5"><strong>LEARN</strong> (~2,700 ms)</td><td>Tokenisation + POS</td><td>fugashi/MeCab</td><td>~50 ms</td></tr>
+        <tr><td>Romaji per token</td><td>pykakasi</td><td>~10 ms</td></tr>
+        <tr><td>Meanings + kanji, lemma form</td><td>jamdict</td><td>~100 ms</td></tr>
+        <tr><td>Grammar patterns</td><td>Rule-based</td><td>~5 ms</td></tr>
+        <tr><td>English translation only</td><td>qwen2.5:7b</td><td>~2,500 ms</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Web UI (localhost:5002)</h3>
+    <p>Flask + 500 ms DOM polling. TRANSLATE tab: Japanese (familiarity underlines) + romaji + English. LEARN tab: word breakdown, grammar card, kanji card, acknowledge bar. Header: dual status (translate grey / learn teal) + lessons until quiz. Left sidebar: metrics + last 10 lessons. Bottom-right preview: live preprocessed frame (TRANSLATE tab only). Quiz overlay: fires every <code>QUIZ_EVERY</code> acknowledged lessons, n/4 random cards.</p>
+
+    <h3>Persistence</h3>
+    <table>
+      <thead>
+        <tr><th>File</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>vocab.json</code></td><td>Words, kanji, familiarity, recall stats</td></tr>
+        <tr><td><code>lessons.json</code></td><td>Lesson archive for quizzes and sidebar</td></tr>
+        <tr><td><code>bounds.json</code></td><td>Crop coordinates</td></tr>
+        <tr><td><code>pixel_llm_log.csv</code></td><td>Per-frame debug log</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>
