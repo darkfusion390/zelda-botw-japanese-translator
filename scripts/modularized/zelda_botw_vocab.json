@@ -1,0 +1,219 @@
+{
+  "words": {
+    "何": {
+      "reading": "nan",
+      "meaning": "what",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "刺": {
+      "reading": "sashi",
+      "meaning": "between (e.g. two people)",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "与える": {
+      "reading": "ataeru",
+      "meaning": "to give (esp. to someone of lower status",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "変化": {
+      "reading": "henka",
+      "meaning": "change",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "する": {
+      "reading": "suru",
+      "meaning": "to do",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "焦る": {
+      "reading": "aseru",
+      "meaning": "to be in a hurry",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "ない": {
+      "reading": "nai",
+      "meaning": "nonexistent",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "・": {
+      "reading": "・",
+      "meaning": "",
+      "times_seen": 2,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "もう": {
+      "reading": "mou",
+      "meaning": "now",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "少し": {
+      "reading": "sukoshi",
+      "meaning": "small quantity",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "ばかり": {
+      "reading": "bakari",
+      "meaning": "only",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "先": {
+      "reading": "saki",
+      "meaning": "a short while ago",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "つい": {
+      "reading": "tsui",
+      "meaning": "to take (seat, position, course, office,",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "まいれ": {
+      "reading": "maire",
+      "meaning": "to go",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "チュチュ": {
+      "reading": "chuchu",
+      "meaning": "ballet skirt",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    },
+    "ゼリー": {
+      "reading": "zerii",
+      "meaning": "jello (gelatin-based dessert)",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18",
+      "last_seen": "2026-03-18"
+    }
+  },
+  "kanji": {
+    "何": {
+      "reading": "ka",
+      "meaning": "what",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    },
+    "刺": {
+      "reading": "shi",
+      "meaning": "thorn",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    },
+    "与": {
+      "reading": "yo",
+      "meaning": "bestow",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    },
+    "変": {
+      "reading": "hen",
+      "meaning": "unusual",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    },
+    "化": {
+      "reading": "ka",
+      "meaning": "change",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    },
+    "焦": {
+      "reading": "shou",
+      "meaning": "char",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    },
+    "少": {
+      "reading": "shou",
+      "meaning": "few",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    },
+    "先": {
+      "reading": "sen",
+      "meaning": "before",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-18"
+    }
+  },
+  "stats": {
+    "total_lines": 3,
+    "new_today": 24,
+    "last_session": "2026-03-18"
+  }
+}

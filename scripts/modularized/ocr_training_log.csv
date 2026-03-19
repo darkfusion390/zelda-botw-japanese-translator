@@ -1,0 +1,13 @@
+image_name,ocr_text,source_file
+training_image_20260318_183609.jpg,何か刺激を与えると変化するに,zelda_core.py
+training_image_20260318_183638.jpg,焦るでない・・,zelda_core.py
+training_image_20260318_183639.jpg,焦るでない・・ もう少しばかり先じゃ ついてまいれ,zelda_core.py
+training_image_20260318_183647.jpg,何か刺を与えると変化するに,zelda_core.py
+training_image_20260318_183822.jpg,何か刺を与えると変化するに,zelda_core.py
+training_image_20260318_183831.jpg,焦るでない・・・,zelda_core.py
+training_image_20260318_183833.jpg,焦るでない・・ もう少しばかり先じゃ ついてまいれ,zelda_core.py
+training_image_20260318_184038.jpg,チュチュゼリー,zelda_core.py
+training_image_20260318_184108.jpg,のじゃろう？,zelda_core.py
+training_image_20260318_184112.jpg,チュチュゼリー,zelda_core.py
+training_image_20260318_184445.jpg,チュチュゼリー,zelda_core.py
+training_image_20260318_190515.jpg,チュチュゼリー,zelda_core.py

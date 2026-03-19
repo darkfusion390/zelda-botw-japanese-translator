@@ -28,5 +28,110 @@
     "japanese": "どこか行くところが あるんじゃないかの？",
     "translation": "Gonna go somewhere, aren't you?",
     "romaji": "doko ka iku tokoro ga aru n ja nai ka no ?"
+  },
+  "揺れに注意して下さい": {
+    "japanese": "揺れに注意して下さい",
+    "translation": "Be careful of the tremors.",
+    "romaji": "yure ni chuui shi te kudasai"
+  },
+  "周辺のマップ情報の入手を開始します": {
+    "japanese": "周辺のマップ情報の入手を開始します",
+    "translation": "Starting to acquire map information around here.",
+    "romaji": "shuuhen no mappu jouhou no nyuushu wo kaishi shi masu"
+  },
+  "周辺のマッブが追加されました": {
+    "japanese": "周辺のマッブが追加されました",
+    "translation": "Additional Mabu have been added around.",
+    "romaji": "shuuhen no mabbu ga tsuika sa re mashi ta"
+  },
+  "この怪物が本当の力を取り戻した時": {
+    "japanese": "この怪物が 本当の力を取り戻した時",
+    "translation": "When this monster regains its true power...",
+    "romaji": "kono kaibutsu ga hontou no chikara wo torimodoshi ta toki"
+  },
+  "いやはや": {
+    "japanese": "いやはや…・・",
+    "translation": "Hmph...",
+    "romaji": "iyahaya … ・ ・"
+  },
+  "いやはやおどろいたわい": {
+    "japanese": "いやはや・・・おどろいたわい",
+    "translation": "Hmph... I'm surprised.",
+    "romaji": "iyahaya ・ ・ ・ odoroi ta wa i"
+  },
+  "大地から次々と塔が姿を現しおった": {
+    "japanese": "大地から 次々と 塔が姿を現しおった・",
+    "translation": "Tower after tower emerges from the earth...",
+    "romaji": "daichi kara tsugitsugi to tou ga sugata wo arawashi otsu ta ・"
+  },
+  "おそらく": {
+    "japanese": "おそらく・・",
+    "translation": "Probably...",
+    "romaji": "osoraku ・ ・"
+  },
+  "おそらくこのハイラルの大地に眠っていた力が呼び覚まされたのだ": {
+    "japanese": "おそらく・・・このハイラルの大地に眠っていた 力が呼び覚まされたのだ",
+    "translation": "Probably... the power that had been sleeping in this land of Hyrule has been awakened.",
+    "romaji": "osoraku ・ ・ ・ kono hairaru no daichi ni nemutsu te i ta chikara ga yobisamasa re ta no da"
+  },
+  "して": {
+    "japanese": "して…・",
+    "translation": "….",
+    "romaji": "shi te … ・"
+  },
+  "して塔の上はどうであった？": {
+    "japanese": "して 塔の上はどうであった？",
+    "translation": "So, how was the top of the tower?",
+    "romaji": "shite tou no ue ha dou de atsu ta ?"
+  },
+  "ほう": {
+    "japanese": "ほう・・・",
+    "translation": "Hmm...",
+    "romaji": "hou ・ ・ ・"
+  },
+  "ほう城の方から声が聞こえたとな": {
+    "japanese": "ほう… 城の方から 声が聞こえたとな",
+    "translation": "Hmm… I heard a voice coming from the castle direction.",
+    "romaji": "hou … jou no hou kara koe ga kikoe ta to na"
+  },
+  "お主はその声に心当たりはないのか？": {
+    "japanese": "お主はその声に 心当たりはないのか？",
+    "translation": "Do you have any heart for that voice?",
+    "romaji": "onushi ha sono koe ni kokoroatari ha nai no ka ?"
+  },
+  "そうか": {
+    "japanese": "…そうか",
+    "translation": "…so you say",
+    "romaji": "… sou ka"
+  },
+  "そうかそれは何とも心苦しいのう": {
+    "japanese": "…そうか それは 何とも 心苦しいのう",
+    "translation": "So be it… that is a most painful matter.",
+    "romaji": "… sou ka sore ha nan to mo kokorogurushii nou"
+  },
+  "お主も見たであろうおんねんかたまりあの城を包み込む禍々しい恐念の塊を": {
+    "japanese": "お主も 見たであろう おんねんかたまり あの城を包み込む 禍々しい恐念の塊を・・・",
+    "translation": "You've seen it too, haven't you? That mass of evil, that ominous dread that envelops that castle...",
+    "romaji": "onushi mo mi ta de arou on ne n katamari ano shiro wo tsutsumikomu magamagashii osore nen no katamari wo ・ ・ ・"
+  },
+  "あれの名は": {
+    "japanese": "あれの名は…・",
+    "translation": "Its name is…",
+    "romaji": "are no na ha … ・"
+  },
+  "今から年前": {
+    "japanese": "今から年前・・・",
+    "translation": "Now, a year ago…",
+    "romaji": "ima kara nen mae ・ ・ ・"
+  },
+  "今から年前この地にあった国ハイラル王国を滅亡させた元じゃ": {
+    "japanese": "今から年前・・・この地にあった国 ハイラル王国を滅亡させた 元じゃ",
+    "translation": "Now, a year ago… the kingdom of Hyrule that once existed here was destroyed by its origin.",
+    "romaji": "ima kara nen mae ・ ・ ・ kono chi ni atsu ta kuni hairaru oukoku wo metsubou sa se ta moto ja"
+  },
+  "突如として現れたヤツによって街は破壊され多くの民たちの命が奪われた": {
+    "japanese": "突如として現れた ヤツによって 街は破壊され 多くの民たちの命が奪われた",
+    "translation": "Suddenly, the town was destroyed by that guy, and many lives were taken.",
+    "romaji": "totsujo to shi te araware ta yatsu ni yotsu te machi ha hakai sa re ooku no tami tachi no inochi ga ubawa re ta"
   }
 }

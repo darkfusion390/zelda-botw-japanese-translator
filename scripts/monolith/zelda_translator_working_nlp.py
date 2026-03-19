@@ -2,7 +2,7 @@
 zelda_translator.py
 ===================
 Pipeline:
-  Step 1 — OCR:         PaddleOCR (Japanese, handles italic/bold game fonts better than manga-ocr)
+  Step 1 — OCR:         Apple Vision framework (macOS built-in, M1 neural engine)
   Step 2 — NLP:         fugashi (MeCab) for word segmentation + POS
                         pykakasi for romaji conversion
                         jamdict for kanji/word dictionary lookups
@@ -24,7 +24,7 @@ Vocab tracking: vocab.json saved next to this script.
 UI: http://localhost:5002
 
 Install deps:
-  pip install paddleocr paddlepaddle
+  pip install pyobjc-framework-Vision pyobjc-framework-Quartz
   pip install fugashi unidic-lite pykakasi jamdict
 """
 
@@ -41,9 +41,8 @@ import tempfile
 from datetime import date
 from flask import Flask, render_template_string, jsonify, Response, request as flask_request
 
-os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'  # must be set before paddleocr import
-import paddleocr
-from paddleocr import PaddleOCR
+import Vision
+import Quartz
 
 # ── NLP libraries (romaji / segmentation / dictionary) ────────────────────────
 import fugashi
@@ -56,9 +55,6 @@ from jamdict import Jamdict
 # pykakasi converts Japanese (kana/kanji) to romaji using hepburn romanisation.
 # Jamdict wraps JMdict, the standard Japanese-English dictionary database.
 # jamdict-data must be installed separately: pip install jamdict-data
-# PaddleOCR — Japanese OCR engine. More robust than manga-ocr on italic/bold
-# game fonts like Zelda BotW's dialogue. use_angle_cls detects rotated text.
-# use_gpu=False for CPU-only; set True if CUDA is available for faster inference.
 _tagger   = fugashi.Tagger()
 _kakasi   = pykakasi.kakasi()
 # Jamdict wraps a SQLite connection which cannot be shared across threads.
@@ -71,13 +67,6 @@ def _get_jmd():
     if not hasattr(_jmd_local, 'jmd'):
         _jmd_local.jmd = Jamdict()
     return _jmd_local.jmd
-_mocr = PaddleOCR(
-    lang='japan',                   # Sets language
-    ocr_version='PP-OCRv3',         # FORCE v3 Mobile (avoids v5 Server bloat)
-    use_textline_orientation=True,  # New argument name (replaces use_angle_cls)
-    device='cpu'                    # New argument name (replaces use_gpu=False)
-)
-print(f"🔍  PaddleOCR {paddleocr.__version__} initialised — check 'Creating model:' lines above for active model names")
 
 # MeCab POS tag → human-readable role for beginners.
 # MeCab returns part-of-speech in Japanese (e.g. 名詞 = noun). This dict
@@ -125,10 +114,10 @@ _SKIP_VOCAB = {
 # the NLP libraries above, which are faster and more accurate than the 7b model.
 OLLAMA_URL        = "http://localhost:11434/api/generate"
 TRANSLATION_MODEL = "qwen3:8b"
-VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
+# VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = 0  # OpenCV webcam capture device index (default 0)
 
 GAME_NAME    = "zelda_botw_"
-LOG_FILE     = "pixel_llm_log.csv"
 VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "vocab.json")
 LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "lessons.json")
 CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "translation_cache.json")
@@ -529,13 +518,7 @@ def frame_diff(a, b):
     gb = cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
     return float(np.mean(np.abs(ga.astype(np.float32) - gb.astype(np.float32))))
 
-def log_entry(brightness, japanese, english):
-    file_exists = os.path.exists(LOG_FILE)
-    with open(LOG_FILE, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["timestamp", "brightness", "japanese", "english"])
-        writer.writerow([time.strftime("%H:%M:%S"), round(brightness, 1), japanese or "", english or ""])
+
 
 def update_preview(frame):
     global latest_frame_jpg
@@ -560,37 +543,72 @@ def push_history(entry):
 # ── OCR ───────────────────────────────────────────────────────────────────────
 
 def apple_vision_ocr(frame):
-    """PaddleOCR — replaces manga-ocr.
-
-    PaddleOCR handles Zelda BotW's bold-italic dialogue font more reliably
-    than manga-ocr, which was trained primarily on standard upright manga fonts.
-
-    PaddleOCR returns a nested list: result[line][[bbox, (text, confidence)]].
-    We concatenate all detected text lines in top-to-bottom order (they come
-    out ordered by bbox y-coordinate already) and join with a space.
-
-    The function signature and return value are identical to the original so
-    no call-sites need to change.
-    """
     t0 = time.perf_counter()
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         tmp_path = f.name
-    cv2.imwrite(tmp_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    cv2.imwrite(tmp_path, frame)
     try:
-        result = _mocr.predict(tmp_path)
+        img_url = Quartz.CFURLCreateFromFileSystemRepresentation(
+            None, tmp_path.encode(), len(tmp_path), False)
+        src = Quartz.CGImageSourceCreateWithURL(img_url, None)
+        cg_image = Quartz.CGImageSourceCreateImageAtIndex(src, 0, None)
+
+        raw_observations = []
+
+        def handler(request, error):
+            if error:
+                return
+            for obs in request.results():
+                cand = obs.topCandidates_(1)
+                if cand:
+                    raw_observations.append((cand[0].string(), obs.boundingBox()))
+
+        request = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(handler)
+        request.setRecognitionLanguages_(["ja"])
+        request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
+        request.setUsesLanguageCorrection_(False)
+        Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(
+            cg_image, {}).performRequests_error_([request], None)
+
+        img_h = frame.shape[0]
+        japanese = ""
+
+        if raw_observations:
+            # Convert Vision bounding boxes (origin bottom-left, y increases up)
+            # to image coordinates (origin top-left, y increases down).
+            candidates = []
+            for text, bbox in raw_observations:
+                px_h  = bbox.size.height * img_h
+                top_y = (1.0 - (bbox.origin.y + bbox.size.height)) * img_h
+                cy    = top_y + px_h / 2.0
+                candidates.append((text, px_h, cy))
+
+            # Bimodal gap split to find furigana/main-text height boundary
+            sorted_h    = sorted(h for _, h, _ in candidates)
+            furi_thresh = sorted_h[0]
+            if len(sorted_h) >= 2:
+                gaps = [(sorted_h[i + 1] - sorted_h[i], i)
+                        for i in range(len(sorted_h) - 1)]
+                max_gap, gap_idx = max(gaps)
+                if max_gap > sorted_h[-1] * 0.20:
+                    furi_thresh = sorted_h[gap_idx + 1]
+
+            # Isolation guard: keep small boxes that sit close to a main-text line
+            median_h      = float(np.median(sorted_h))
+            large_centres = [cy for _, h, cy in candidates if h >= furi_thresh]
+
+            texts = []
+            for text, px_h, cy in candidates:
+                if px_h >= furi_thresh:
+                    texts.append(text)
+                elif large_centres and any(
+                        abs(cy - lc) < median_h * 1.5 for lc in large_centres):
+                    texts.append(text)
+
+            japanese = " ".join(texts).strip()
+
     finally:
         os.unlink(tmp_path)
-
-    # predict() returns a list of dicts, one per image.
-    # Each dict has a 'rec_texts' key with a list of recognised text strings.
-    japanese = ""
-    if result:
-        for item in result:
-            texts = item.get('rec_texts', []) if isinstance(item, dict) else []
-            parts = [t for t in texts if t and t.strip()]
-            if parts:
-                japanese = " ".join(parts)
-                break  # single image — only one result item expected
 
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
     # print(f"⏱  [ocr] {elapsed_ms}ms  →  {japanese}")
@@ -1077,78 +1095,24 @@ def call_learn(japanese, vocab, ocr_ms=0):
 # ── Preprocessing ─────────────────────────────────────────────────────────────
 
 def preprocess_crop(crop):
-    """Preprocessing pipeline for manga-ocr on Zelda's noisy dark-background dialogue.
-
-    Why Otsu failed:
-      Otsu picks a threshold based on the image histogram. Zelda's dark textured
-      background has enough contrast variation that Otsu mistakes grain for foreground,
-      producing noisy white splotches that change every frame — preventing stabilization
-      and confusing the OCR model.
-
-    Why a high fixed threshold works here:
-      The game text is rendered as bright white (180-255) on a dark grey/black
-      background (0-120). After denoising kills the grain, a threshold of ~185
-      cleanly isolates only genuine text strokes. The key is denoising FIRST so the
-      background is flat dark before the threshold is applied.
-
-    Steps:
-      1. Greyscale.
-      2. Denoise (fastNlMeans, aggressive h=15) — flattens background grain to near-black
-         so the fixed threshold doesn't pick it up.
-      3. Fixed threshold at 185 — isolates only bright white text strokes.
-      4. Morphological closing (small kernel) — reconnects any strokes slightly broken
-         by denoising, improves character shape integrity for the model.
-      5. Furigana row suppression.
-      6. 2x upscale + padding.
-      7. Back to BGR.
-    """
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-
-    # Step 2: aggressive denoise — flattens background texture to near-black
-    gray = cv2.fastNlMeansDenoising(gray, h=15, templateWindowSize=7, searchWindowSize=21)
-
-    # Step 3: fixed high threshold — only captures bright white text strokes
-    _, mask = cv2.threshold(gray, 185, 255, cv2.THRESH_BINARY)
-
+    _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
-        # Nothing bright enough — return padded greyscale as fallback
-        h, w = gray.shape[:2]
-        result = cv2.resize(gray, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
-        result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=0)
-        return cv2.bitwise_not(cv2.cvtColor(result, cv2.COLOR_GRAY2BGR))
-
-    # Step 4: morphological closing — reconnects strokes slightly broken by denoising
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-
-    # Step 5: furigana row suppression
+        return crop.copy()
     row_density = mask.sum(axis=1) / 255.0
-    non_zero = row_density[row_density > 0]
-    if len(non_zero) > 0:
-        median_density     = float(np.median(non_zero))
+    result = np.zeros_like(crop)
+    result[mask == 255] = (255, 255, 255)
+    non_zero_densities = row_density[row_density > 0]
+    if len(non_zero_densities) > 0:
+        median_density = float(np.median(non_zero_densities))
         furigana_threshold = median_density * 0.42
         for i, d in enumerate(row_density):
             if 0 < d < furigana_threshold:
-                mask[i, :] = 0
-
-    # Step 6: upscale + sharpen + padding
-    # 3x instead of 2x — manga-ocr needs larger input to resolve thin-stroke
-    # distinctions (の vs ん, が vs か, 味 vs 咲, リンゴ vs ソフ etc).
-    h, w = mask.shape[:2]
-    result = cv2.resize(mask, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
-
-    # Unsharp mask after upscale — Lanczos softens thin strokes slightly;
-    # this restores edge crispness so the model sees clean stroke boundaries.
-    # blur = cv2.GaussianBlur(result, (0, 0), 3)
-    # result = cv2.addWeighted(result, 1.5, blur, -0.5, 0)
-
-    result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=0)
-
-    # Step 7: back to BGR
-    # Step 8: invert — manga-ocr was trained on black-on-white manga pages.
-    # Zelda's UI is white-on-black. Feeding inverted polarity causes the model
-    # to hallucinate structurally similar but wrong characters (食→もう, 火→水 etc).
-    return cv2.bitwise_not(cv2.cvtColor(result, cv2.COLOR_GRAY2BGR))
+                result[i, :] = 0
+    h, w = result.shape[:2]
+    result = cv2.resize(result, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
+    result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=(0,0,0))
+    return result
 
 # ── Bounds loading ─────────────────────────────────────────────────────────────
 
@@ -1235,8 +1199,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
 def ocr_loop(bounds):
     """Runs OCR continuously. When text passes all stability/dedup gates,
     writes to latest_stable_jp so both translate and learn loops can consume it."""
-    STABLE_THRESHOLD   = 5    # raised from 4 — fuzzy gate needs a few more confirms
-    STABLE_FUZZY_TOL   = 2    # manga-ocr may vary by 1-2 chars on noisy frames; tolerate that
+    STABLE_THRESHOLD   = 4
     MIN_JAPANESE_CHARS = 4
     text_stable = {"text": "", "stable_count": 0}
 
@@ -1269,18 +1232,8 @@ def ocr_loop(bounds):
         cv2.imwrite(PREVIEW_PATH, cleaned)
         update_preview(cleaned)
 
-        # Save OCR input to disk every frame for debugging/review.
-        # ocr_input.jpg — always overwritten, quick grab of latest frame.
-        # ocr_inputs/<timestamp>.jpg — timestamped snapshot; grab these when
-        # you see a bad result to build a collection to send for diagnosis.
-        _ocr_input_path = os.path.expanduser("~/Downloads/ocr_input.jpg")
-        _ocr_input_dir  = os.path.expanduser("~/Downloads/ocr_inputs/")
-        os.makedirs(_ocr_input_dir, exist_ok=True)
-        # _ocr_input_ts   = os.path.join(_ocr_input_dir, f"ocr_input_x_{time.strftime('%H%M%S')}.jpg")
-        cv2.imwrite(_ocr_input_path, cleaned)
-        # cv2.imwrite(_ocr_input_ts,   cleaned)
-
         try:
+            cv2.imwrite(os.path.expanduser("~/Downloads/ocr_input.jpg"), cleaned)
             jp, ocr_ms = apple_vision_ocr(cleaned)
             jp = clean_ocr(jp)
             state["ocr_timing"] = {"ocr_ms": ocr_ms}
@@ -1299,14 +1252,9 @@ def ocr_loop(bounds):
                 state["status"] = "Listening..."
                 continue
 
-            # Gate 3: stability — text must be fuzzy-stable for STABLE_THRESHOLD frames.
-            # Uses fuzzy_same (edit distance ≤ STABLE_FUZZY_TOL) instead of exact equality
-            # so 1-2 char OCR variations from background grain don't reset the counter.
-            # When a fuzzy match increments the count, keep the longest reading.
-            if fuzzy_same(jp, text_stable["text"], max_diff=STABLE_FUZZY_TOL):
+            # Gate 3: stability — text must be identical for STABLE_THRESHOLD frames
+            if normalize_for_dedup(jp) == normalize_for_dedup(text_stable["text"]):
                 text_stable["stable_count"] += 1
-                if len(jp.replace(" ", "")) > len(text_stable["text"].replace(" ", "")):
-                    text_stable["text"] = jp
             else:
                 text_stable["text"] = jp
                 text_stable["stable_count"] = 1
@@ -1373,7 +1321,6 @@ def translate_loop():
                 "translation": translation,
             }
             push_history(history_entry)
-            log_entry(state.get("brightness", 0), jp, translation)
             state["status"] = "Live"
             print(f"🔤  {jp} → {translation}")
         except Exception as e:
@@ -1962,9 +1909,19 @@ async function loadSidebar() {
   } catch(e) {}
 }
 
+// Track the latest poll state so returnToLive can restore the current lesson
+let _lastPollState = null;
+
+function _liveBtnLabel() {
+  if (_lastPollState && _lastPollState.lesson_pending_ack) return '↩ back to current lesson';
+  return '↩ back to live';
+}
+
 function showSidebarLesson(idx) {
   activeSidebarIdx = idx;
-  document.getElementById('live-btn').style.display = 'inline-block';
+  const liveBtn = document.getElementById('live-btn');
+  liveBtn.style.display = 'inline-block';
+  liveBtn.textContent = _liveBtnLabel();
   // Update active state
   document.querySelectorAll('.sidebar-item').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
@@ -1981,6 +1938,9 @@ function showSidebarLesson(idx) {
   const enEl = document.getElementById('english');
   enEl.textContent = l.translation || '';
   enEl.className   = 'english';
+
+  // Hide ack bar while browsing history — poll restores it on return to live
+  document.getElementById('ack-bar').classList.remove('visible');
 
   // If in LEARN mode, also populate lesson panel
   if (currentMode === 'LEARN') {
@@ -2065,6 +2025,7 @@ function returnToLive() {
   activeSidebarIdx = null;
   document.getElementById('live-btn').style.display = 'none';
   document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  // poll() will fire within 500ms and restore the correct live/pending-lesson state
 }
 async function acknowledge() {
   const res  = await fetch('/acknowledge', {method: 'POST'});
@@ -2154,6 +2115,13 @@ let sidebarRefreshCounter = 0;
 async function poll() {
   try {
     const d = await (await fetch('/state')).json();
+    _lastPollState = d;
+
+    // If user is browsing a sidebar lesson, keep the back-button label current
+    // (lesson_pending_ack may change while they're reading history)
+    if (activeSidebarIdx !== null) {
+      document.getElementById('live-btn').textContent = _liveBtnLabel();
+    }
 
     // Translate status (grey)
     const ts = document.getElementById('translate-status');
@@ -2317,7 +2285,6 @@ def acknowledge():
         "translation": state['lesson'].get("translation", ""),
     }
     push_history(history_entry)
-    log_entry(state.get('brightness', 0), state['lesson_japanese'], state['lesson'].get("translation", ""))
 
     state['lesson_pending_ack'] = False
     state['lesson_japanese']    = ''

@@ -1,10 +1,9 @@
 """
-zelda_translator_zeldacc.py
-============================
+zelda_translator_av_reading_match.py
+=====================================
 Pipeline:
-  Step 1 — OCR:         PaddleOCR (PP-OCRv5 mobile) — Windows compatible
-                        Preprocessing: zeldacc preset (threshold-160 → CC furigana
-                        removal at original res → 2x Lanczos → black border)
+  Step 1 — OCR:         Apple Vision framework (macOS built-in, M1 neural engine)
+                        + reading-match furigana filter (MeCab + jamdict)
   Step 2 — NLP:         fugashi (MeCab) for word segmentation + POS
                         pykakasi for romaji conversion
                         jamdict for kanji/word dictionary lookups
@@ -26,8 +25,8 @@ Vocab tracking: vocab.json saved next to this script.
 UI: http://localhost:5002
 
 Install deps:
-  pip install paddleocr paddlepaddle pillow
-  pip install fugashi unidic-lite pykakasi jamdict
+  pip install pyobjc-framework-Vision pyobjc-framework-Quartz
+  pip install fugashi unidic-lite pykakasi jamdict jamdict-data
 """
 
 import cv2
@@ -43,8 +42,8 @@ import tempfile
 from datetime import date
 from flask import Flask, render_template_string, jsonify, Response, request as flask_request
 
-from PIL import Image
-from paddleocr import PaddleOCR
+import Vision
+import Quartz
 
 # ── NLP libraries (romaji / segmentation / dictionary) ────────────────────────
 import fugashi
@@ -116,10 +115,10 @@ _SKIP_VOCAB = {
 # the NLP libraries above, which are faster and more accurate than the 7b model.
 OLLAMA_URL        = "http://localhost:11434/api/generate"
 TRANSLATION_MODEL = "qwen3:8b"
-VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
+# VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
+VIDEO_SOURCE = 0
 
 GAME_NAME    = "zelda_botw_"
-LOG_FILE     = "pixel_llm_log.csv"
 VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "vocab.json")
 LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "lessons.json")
 CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "translation_cache.json")
@@ -520,13 +519,7 @@ def frame_diff(a, b):
     gb = cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
     return float(np.mean(np.abs(ga.astype(np.float32) - gb.astype(np.float32))))
 
-def log_entry(brightness, japanese, english):
-    file_exists = os.path.exists(LOG_FILE)
-    with open(LOG_FILE, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["timestamp", "brightness", "japanese", "english"])
-        writer.writerow([time.strftime("%H:%M:%S"), round(brightness, 1), japanese or "", english or ""])
+
 
 def update_preview(frame):
     global latest_frame_jpg
@@ -548,119 +541,205 @@ def push_history(entry):
     if len(state["history"]) > 1:
         state["history"].pop()
 
+# ── Reading-match furigana filter ─────────────────────────────────────────────
+# Drops pure-kana OCR tokens that exactly match a kanji reading collected from
+# the same text, identifying them as furigana that survived row-density + the
+# bimodal height filter.  Two-stage reading collection:
+#   Stage 1 — MeCab compound-word readings (handles e.g. 食材 → しょくざい)
+#   Stage 2 — jamdict per-character on/kun'yomi (handles single-kanji furigana
+#              like び above 火, み above 見, ぬし above 主)
+# Both stages reuse the already-initialised _tagger and _jmd instances.
+
+def _is_pure_kana(text: str) -> bool:
+    """True if text contains only hiragana, katakana, and/or prolonged sound mark."""
+    if not text:
+        return False
+    for ch in text:
+        if not ('\u3040' <= ch <= '\u309f'    # hiragana
+                or '\u30a0' <= ch <= '\u30ff'  # katakana
+                or ch == '\u30fc'):             # prolonged sound mark ー
+            return False
+    return True
+
+
+def _has_kanji(text: str) -> bool:
+    """True if text contains at least one CJK unified ideograph."""
+    return any('\u4e00' <= ch <= '\u9fff' for ch in text)
+
+
+def _kata_to_hira(text: str) -> str:
+    """Convert katakana to hiragana for normalised comparison."""
+    return "".join(
+        chr(ord(c) - 0x60) if '\u30a1' <= c <= '\u30f6' else c
+        for c in text
+    )
+
+
+def _collect_kanji_readings(text: str) -> set:
+    """
+    Collect all kana readings of kanji in text using _tagger (MeCab) and _jmd (jamdict).
+
+    Stage 1 — MeCab compound-word readings:
+      For each token containing kanji, add its predicted kana reading to the set.
+      Handles multi-kanji words correctly (e.g. 食材 → しょくざい, 栄養 → えいよう).
+
+    Stage 2 — Per-character jamdict readings:
+      For each individual kanji character, look up all on'yomi and kun'yomi entries.
+      Strips okurigana suffixes (み.る → み, い.く → い) so single-mora furigana
+      like び (above 火) or み (above 見) match even when MeCab embeds them in a
+      compound reading.
+
+    Returns a set of hiragana strings; any pure-kana OCR token that exactly
+    matches one of these should be treated as furigana and dropped.
+    """
+    readings: set = set()
+
+    # Stage 1: MeCab compound-word readings
+    try:
+        for word in _tagger(text):
+            if _has_kanji(word.surface):
+                try:
+                    kana = word.feature.kana
+                except AttributeError:
+                    kana = None
+                if kana:
+                    readings.add(_kata_to_hira(kana))
+                    readings.add(kana)
+    except Exception:
+        pass
+
+    # Stage 2: per-character on'yomi / kun'yomi via jamdict
+    seen_chars: set = set()
+    for ch in text:
+        if '\u4e00' <= ch <= '\u9fff' and ch not in seen_chars:
+            seen_chars.add(ch)
+            try:
+                result = _get_jmd().lookup(ch)
+                for char_entry in (result.chars or []):
+                    for rm_group in (char_entry.rm_groups or []):
+                        for reading in (rm_group.readings or []):
+                            r_val = getattr(reading, 'value', '') or ''
+                            if not r_val:
+                                continue
+                            # Strip okurigana (み.る → み) and irregular markers
+                            r_base = r_val.split('.')[0].split('―')[0].strip()
+                            if r_base and _is_pure_kana(r_base):
+                                readings.add(_kata_to_hira(r_base))
+            except Exception:
+                pass
+
+    return readings
+
+
+def filter_reading_match(texts: list) -> list:
+    """
+    Drop furigana tokens from a list of OCR text strings using reading-match.
+
+    Joins all tokens to give MeCab full sentence context for compound-word
+    segmentation, collects kanji readings via _collect_kanji_readings, then
+    removes any token that is pure kana and exactly matches a collected reading
+    (after katakana→hiragana normalisation).
+
+    Protected by design:
+      - Multi-kana content words (ゆっくり, もしかして) — not kanji readings
+      - Grammar particles — too short or absent from any kanji reading set
+      - Mixed kanji+kana tokens — never pure kana, never candidates for removal
+    """
+    if not texts:
+        return texts
+
+    joined = " ".join(texts)
+    readings = _collect_kanji_readings(joined)
+
+    if not readings:
+        return texts
+
+    kept = []
+    for t in texts:
+        t_stripped = t.strip()
+        t_hira = _kata_to_hira(t_stripped)
+        if _is_pure_kana(t_stripped) and t_hira in readings:
+            continue  # pure kana matching a kanji reading → furigana, drop
+        kept.append(t)
+    return kept
+
+
 # ── OCR ───────────────────────────────────────────────────────────────────────
 
-# ── PaddleOCR initialisation ─────────────────────────────────────────────────
-# Loaded once at module level — model init takes ~2s, reusing avoids that cost
-# on every OCR call.
-_paddle_ocr = PaddleOCR(
-    text_detection_model_name="PP-OCRv5_mobile_det",
-    text_recognition_model_name="PP-OCRv5_mobile_rec",
-    use_doc_orientation_classify=False,
-    use_doc_unwarping=False,
-    use_textline_orientation=False,
-    device="cpu",
-)
-
-# ── PaddleOCR post-processing ─────────────────────────────────────────────────
-# Targeted fixes for known PP-OCRv5 mobile misreads on game dialogue.
-# Each rule is zero false-positive — verified against Japanese vocabulary.
-
-_EXACT_FIXES = {
-    "にゅっくり": "に ゆっくり",
-}
-
-def _fix_exact(text: str) -> str:
-    for wrong, correct in _EXACT_FIXES.items():
-        text = text.replace(wrong, correct)
-    return text
-
-def _fix_hira_before_kata_N(text: str) -> str:
-    """Convert hiragana immediately before katakana ン to katakana (+0x60).
-    ン only exists in katakana so any hiragana before it is a misread.
-    Fixes e.g. りンゴ → リンゴ."""
-    result = list(text)
-    for i in range(len(result) - 1):
-        if 'ぁ' <= result[i] <= 'ん' and result[i + 1] == 'ン':
-            result[i] = chr(ord(result[i]) + 0x60)
-    return ''.join(result)
-
-def _postprocess_paddle(pairs: list) -> list:
-    """Apply fixes to (text, score) pairs. Drops noise lines (len ≤ 3).
-    Scores stay in sync — dropped lines remove their score too."""
-    out = []
-    for t, s in pairs:
-        t = _fix_exact(t)
-        t = _fix_hira_before_kata_N(t)
-        if len(t.strip()) > 3:
-            out.append((t, s))
-    return out
-
-def paddle_ocr(frame):
-    """Run PaddleOCR on a preprocessed BGR frame. Returns (japanese_text, elapsed_ms).
-    Detections are sorted top-to-bottom by vertical centre before filtering so
-    reading order is always preserved regardless of how Paddle returns boxes."""
+def apple_vision_ocr(frame):
     t0 = time.perf_counter()
-
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         tmp_path = f.name
     cv2.imwrite(tmp_path, frame)
-
     try:
-        result = _paddle_ocr.predict(tmp_path)
+        img_url = Quartz.CFURLCreateFromFileSystemRepresentation(
+            None, tmp_path.encode(), len(tmp_path), False)
+        src = Quartz.CGImageSourceCreateWithURL(img_url, None)
+        cg_image = Quartz.CGImageSourceCreateImageAtIndex(src, 0, None)
+
+        raw_observations = []
+
+        def handler(request, error):
+            if error:
+                return
+            for obs in request.results():
+                cand = obs.topCandidates_(1)
+                if cand:
+                    raw_observations.append((cand[0].string(), obs.boundingBox()))
+
+        request = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(handler)
+        request.setRecognitionLanguages_(["ja"])
+        request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
+        request.setUsesLanguageCorrection_(False)
+        Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(
+            cg_image, {}).performRequests_error_([request], None)
+
+        img_h = frame.shape[0]
+        japanese = ""
+
+        if raw_observations:
+            # Convert Vision bounding boxes (origin bottom-left, y increases up)
+            # to image coordinates (origin top-left, y increases down).
+            candidates = []
+            for text, bbox in raw_observations:
+                px_h  = bbox.size.height * img_h
+                top_y = (1.0 - (bbox.origin.y + bbox.size.height)) * img_h
+                cy    = top_y + px_h / 2.0
+                candidates.append((text, px_h, cy))
+
+            # Bimodal gap split to find furigana/main-text height boundary
+            sorted_h    = sorted(h for _, h, _ in candidates)
+            furi_thresh = sorted_h[0]
+            if len(sorted_h) >= 2:
+                gaps = [(sorted_h[i + 1] - sorted_h[i], i)
+                        for i in range(len(sorted_h) - 1)]
+                max_gap, gap_idx = max(gaps)
+                if max_gap > sorted_h[-1] * 0.20:
+                    furi_thresh = sorted_h[gap_idx + 1]
+
+            # Isolation guard: keep small boxes that sit close to a main-text line
+            median_h      = float(np.median(sorted_h))
+            large_centres = [cy for _, h, cy in candidates if h >= furi_thresh]
+
+            texts = []
+            for text, px_h, cy in candidates:
+                if px_h >= furi_thresh:
+                    texts.append(text)
+                elif large_centres and any(
+                        abs(cy - lc) < median_h * 1.5 for lc in large_centres):
+                    texts.append(text)
+
+            # Reading-match filter: drop any surviving pure-kana token that
+            # exactly matches a kanji reading collected from the full text.
+            texts = filter_reading_match(texts)
+
+            japanese = " ".join(texts).strip()
+
     finally:
         os.unlink(tmp_path)
 
-    all_texts, all_scores, all_heights, all_centres = [], [], [], []
-    for res in (result or []):
-        polys  = res.get("rec_polys") or res.get("rec_boxes") or []
-        t_list = res.get("rec_texts") or []
-        s_list = res.get("rec_scores") or []
-        for poly, t, s in zip(polys, t_list, s_list):
-            pts   = np.array(poly)
-            y_min = float(pts[:, 1].min())
-            y_max = float(pts[:, 1].max())
-            all_texts.append(t)
-            all_scores.append(s)
-            all_heights.append(y_max - y_min)
-            all_centres.append((y_min + y_max) / 2.0)
-
-    # Sort top-to-bottom by vertical centre
-    if all_texts:
-        combined = sorted(
-            zip(all_texts, all_scores, all_heights, all_centres),
-            key=lambda x: x[3]
-        )
-        all_texts, all_scores, all_heights, all_centres = map(list, zip(*combined))
-
-    if all_heights:
-        # Bimodal gap split to find furigana/main-text height boundary
-        sorted_h    = sorted(all_heights)
-        furi_thresh = sorted_h[0]
-        if len(sorted_h) >= 2:
-            gaps = [(sorted_h[i + 1] - sorted_h[i], i) for i in range(len(sorted_h) - 1)]
-            max_gap, gap_idx = max(gaps)
-            if max_gap > sorted_h[-1] * 0.20:
-                furi_thresh = sorted_h[gap_idx + 1]
-        median_h      = float(np.median(all_heights))
-        large_centres = [c for h, c in zip(all_heights, all_centres) if h >= furi_thresh]
-        filtered = []
-        for t, s, h, cy in zip(all_texts, all_scores, all_heights, all_centres):
-            if h >= furi_thresh:
-                filtered.append((t, s))
-            elif large_centres and any(abs(cy - lc) < median_h * 1.5 for lc in large_centres):
-                filtered.append((t, s))
-        texts  = [t for t, _ in filtered]
-        scores = [s for _, s in filtered]
-    else:
-        texts, scores = all_texts, all_scores
-
-    # Post-processing: fixes + noise filter, scores kept in sync
-    filtered_pairs = _postprocess_paddle(list(zip(texts, scores)))
-    texts = [t for t, _ in filtered_pairs]
-
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
-    japanese = "\n".join(texts)
+    # print(f"⏱  [ocr] {elapsed_ms}ms  →  {japanese}")
     return japanese, elapsed_ms
 
 def clean_ocr(text):
@@ -1143,65 +1222,24 @@ def call_learn(japanese, vocab, ocr_ms=0):
 
 # ── Preprocessing ─────────────────────────────────────────────────────────────
 
-def remove_furigana_components(pil_image):
-    """CC-based furigana removal with isolation guard.
-    Removes small glyphs that are isolated above/below main-text lines (furigana)
-    while preserving small kana (ゃ/っ/ょ) that sit on the same line as large chars.
-    Runs on the raw binary image BEFORE upscaling for accurate component sizing."""
-    arr     = np.array(pil_image.convert("L"))
-    dark_bg = np.mean(arr) < 127
-    binary  = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-    if num_labels <= 1:
-        return pil_image
-    heights = [stats[i, cv2.CC_STAT_HEIGHT] for i in range(1, num_labels)]
-    if not heights:
-        return pil_image
-    median_h           = float(np.median(heights))
-    furigana_threshold = median_h * 0.55
-    centres = [
-        stats[i, cv2.CC_STAT_TOP] + stats[i, cv2.CC_STAT_HEIGHT] / 2.0
-        for i in range(1, num_labels)
-    ]
-    large_indices = [
-        idx for idx in range(len(centres))
-        if stats[idx + 1, cv2.CC_STAT_HEIGHT] >= furigana_threshold
-    ]
-    out      = arr.copy()
-    bg_value = 255 if not dark_bg else 0
-    for i in range(1, num_labels):
-        h = stats[i, cv2.CC_STAT_HEIGHT]
-        w = stats[i, cv2.CC_STAT_WIDTH]
-        if h >= furigana_threshold or w >= median_h * 2:
-            continue
-        cy = centres[i - 1]
-        has_large_neighbour = any(
-            abs(centres[j] - cy) < median_h * 1.5
-            for j in large_indices
-        )
-        if not has_large_neighbour:
-            out[labels == i] = bg_value
-    return Image.fromarray(out)
-
-
 def preprocess_crop(crop):
-    """Zeldacc preset preprocessing.
-    Pipeline: threshold-160 → CC furigana removal at original res → 2x Lanczos → black border.
-    CC removal runs before upscaling so component sizes are accurate (no Lanczos halo artifacts).
-    Matches the 'zeldacc' preset in japanese_ocr_compare.py exactly."""
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
         return crop.copy()
+    row_density = mask.sum(axis=1) / 255.0
     result = np.zeros_like(crop)
     result[mask == 255] = (255, 255, 255)
-    # CC furigana removal at original resolution — before upscaling
-    pil_pre   = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
-    pil_clean = remove_furigana_components(pil_pre)
-    result    = cv2.cvtColor(np.array(pil_clean), cv2.COLOR_RGB2BGR)
-    h, w   = result.shape[:2]
+    non_zero_densities = row_density[row_density > 0]
+    if len(non_zero_densities) > 0:
+        median_density = float(np.median(non_zero_densities))
+        furigana_threshold = median_density * 0.42
+        for i, d in enumerate(row_density):
+            if 0 < d < furigana_threshold:
+                result[i, :] = 0
+    h, w = result.shape[:2]
     result = cv2.resize(result, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
-    result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+    result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=(0,0,0))
     return result
 
 # ── Bounds loading ─────────────────────────────────────────────────────────────
@@ -1324,7 +1362,7 @@ def ocr_loop(bounds):
 
         try:
             cv2.imwrite(os.path.expanduser("~/Downloads/ocr_input.jpg"), cleaned)
-            jp, ocr_ms = paddle_ocr(cleaned)
+            jp, ocr_ms = apple_vision_ocr(cleaned)
             jp = clean_ocr(jp)
             state["ocr_timing"] = {"ocr_ms": ocr_ms}
 
@@ -1411,7 +1449,6 @@ def translate_loop():
                 "translation": translation,
             }
             push_history(history_entry)
-            log_entry(state.get("brightness", 0), jp, translation)
             state["status"] = "Live"
             print(f"🔤  {jp} → {translation}")
         except Exception as e:
@@ -2000,9 +2037,19 @@ async function loadSidebar() {
   } catch(e) {}
 }
 
+// Track the latest poll state so returnToLive can restore the current lesson
+let _lastPollState = null;
+
+function _liveBtnLabel() {
+  if (_lastPollState && _lastPollState.lesson_pending_ack) return '↩ back to current lesson';
+  return '↩ back to live';
+}
+
 function showSidebarLesson(idx) {
   activeSidebarIdx = idx;
-  document.getElementById('live-btn').style.display = 'inline-block';
+  const liveBtn = document.getElementById('live-btn');
+  liveBtn.style.display = 'inline-block';
+  liveBtn.textContent = _liveBtnLabel();
   // Update active state
   document.querySelectorAll('.sidebar-item').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
@@ -2019,6 +2066,9 @@ function showSidebarLesson(idx) {
   const enEl = document.getElementById('english');
   enEl.textContent = l.translation || '';
   enEl.className   = 'english';
+
+  // Hide ack bar while browsing history — poll restores it on return to live
+  document.getElementById('ack-bar').classList.remove('visible');
 
   // If in LEARN mode, also populate lesson panel
   if (currentMode === 'LEARN') {
@@ -2103,6 +2153,7 @@ function returnToLive() {
   activeSidebarIdx = null;
   document.getElementById('live-btn').style.display = 'none';
   document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  // poll() will fire within 500ms and restore the correct live/pending-lesson state
 }
 async function acknowledge() {
   const res  = await fetch('/acknowledge', {method: 'POST'});
@@ -2192,6 +2243,13 @@ let sidebarRefreshCounter = 0;
 async function poll() {
   try {
     const d = await (await fetch('/state')).json();
+    _lastPollState = d;
+
+    // If user is browsing a sidebar lesson, keep the back-button label current
+    // (lesson_pending_ack may change while they're reading history)
+    if (activeSidebarIdx !== null) {
+      document.getElementById('live-btn').textContent = _liveBtnLabel();
+    }
 
     // Translate status (grey)
     const ts = document.getElementById('translate-status');
@@ -2355,7 +2413,6 @@ def acknowledge():
         "translation": state['lesson'].get("translation", ""),
     }
     push_history(history_entry)
-    log_entry(state.get('brightness', 0), state['lesson_japanese'], state['lesson'].get("translation", ""))
 
     state['lesson_pending_ack'] = False
     state['lesson_japanese']    = ''

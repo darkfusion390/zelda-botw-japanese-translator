@@ -1,8 +1,10 @@
 """
-zelda_translator.py
-===================
+zelda_translator_zelda.py
+=========================
 Pipeline:
-  Step 1 — OCR:         Apple Vision framework (macOS built-in, M1 neural engine)
+  Step 1 — OCR:         PaddleOCR (PP-OCRv5 mobile) — Windows compatible
+                        Preprocessing: zelda preset (threshold-160 → row-density
+                        furigana suppression → 2x Lanczos → black border)
   Step 2 — NLP:         fugashi (MeCab) for word segmentation + POS
                         pykakasi for romaji conversion
                         jamdict for kanji/word dictionary lookups
@@ -24,7 +26,7 @@ Vocab tracking: vocab.json saved next to this script.
 UI: http://localhost:5002
 
 Install deps:
-  pip install pyobjc-framework-Vision pyobjc-framework-Quartz
+  pip install paddleocr paddlepaddle pillow
   pip install fugashi unidic-lite pykakasi jamdict
 """
 
@@ -41,8 +43,8 @@ import tempfile
 from datetime import date
 from flask import Flask, render_template_string, jsonify, Response, request as flask_request
 
-import Vision
-import Quartz
+from PIL import Image
+from paddleocr import PaddleOCR
 
 # ── NLP libraries (romaji / segmentation / dictionary) ────────────────────────
 import fugashi
@@ -117,7 +119,6 @@ TRANSLATION_MODEL = "qwen3:8b"
 VIDEO_SOURCE     = "http://192.168.1.107:8080/video"
 
 GAME_NAME    = "zelda_botw_"
-LOG_FILE     = "pixel_llm_log.csv"
 VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "vocab.json")
 LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "lessons.json")
 CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "translation_cache.json")
@@ -518,13 +519,7 @@ def frame_diff(a, b):
     gb = cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
     return float(np.mean(np.abs(ga.astype(np.float32) - gb.astype(np.float32))))
 
-def log_entry(brightness, japanese, english):
-    file_exists = os.path.exists(LOG_FILE)
-    with open(LOG_FILE, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["timestamp", "brightness", "japanese", "english"])
-        writer.writerow([time.strftime("%H:%M:%S"), round(brightness, 1), japanese or "", english or ""])
+
 
 def update_preview(frame):
     global latest_frame_jpg
@@ -548,75 +543,117 @@ def push_history(entry):
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
 
-def apple_vision_ocr(frame):
+# ── PaddleOCR initialisation ─────────────────────────────────────────────────
+# Loaded once at module level — model init takes ~2s, reusing avoids that cost
+# on every OCR call.
+_paddle_ocr = PaddleOCR(
+    text_detection_model_name="PP-OCRv5_mobile_det",
+    text_recognition_model_name="PP-OCRv5_mobile_rec",
+    use_doc_orientation_classify=False,
+    use_doc_unwarping=False,
+    use_textline_orientation=False,
+    device="cpu",
+)
+
+# ── PaddleOCR post-processing ─────────────────────────────────────────────────
+# Targeted fixes for known PP-OCRv5 mobile misreads on game dialogue.
+# Each rule is zero false-positive — verified against Japanese vocabulary.
+
+_EXACT_FIXES = {
+    "にゅっくり": "に ゆっくり",
+}
+
+def _fix_exact(text: str) -> str:
+    for wrong, correct in _EXACT_FIXES.items():
+        text = text.replace(wrong, correct)
+    return text
+
+def _fix_hira_before_kata_N(text: str) -> str:
+    """Convert hiragana immediately before katakana ン to katakana (+0x60).
+    ン only exists in katakana so any hiragana before it is a misread.
+    Fixes e.g. りンゴ → リンゴ."""
+    result = list(text)
+    for i in range(len(result) - 1):
+        if 'ぁ' <= result[i] <= 'ん' and result[i + 1] == 'ン':
+            result[i] = chr(ord(result[i]) + 0x60)
+    return ''.join(result)
+
+def _postprocess_paddle(pairs: list) -> list:
+    """Apply fixes to (text, score) pairs. Drops noise lines (len ≤ 3).
+    Scores stay in sync — dropped lines remove their score too."""
+    out = []
+    for t, s in pairs:
+        t = _fix_exact(t)
+        t = _fix_hira_before_kata_N(t)
+        if len(t.strip()) > 3:
+            out.append((t, s))
+    return out
+
+def paddle_ocr(frame):
+    """Run PaddleOCR on a preprocessed BGR frame. Returns (japanese_text, elapsed_ms).
+    Detections are sorted top-to-bottom by vertical centre before filtering so
+    reading order is always preserved regardless of how Paddle returns boxes."""
     t0 = time.perf_counter()
+
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         tmp_path = f.name
     cv2.imwrite(tmp_path, frame)
+
     try:
-        img_url = Quartz.CFURLCreateFromFileSystemRepresentation(
-            None, tmp_path.encode(), len(tmp_path), False)
-        src = Quartz.CGImageSourceCreateWithURL(img_url, None)
-        cg_image = Quartz.CGImageSourceCreateImageAtIndex(src, 0, None)
-
-        # Collect raw observations including bounding-box geometry for the
-        # post-OCR isolation guard applied below.
-        raw_observations = []
-        def handler(request, error):
-            if error: return
-            for obs in request.results():
-                cand = obs.topCandidates_(1)
-                if cand:
-                    raw_observations.append((cand[0].string(), obs.boundingBox()))
-
-        request = Vision.VNRecognizeTextRequest.alloc().initWithCompletionHandler_(handler)
-        request.setRecognitionLanguages_(["ja"])
-        request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
-        request.setUsesLanguageCorrection_(True)   # helps Apple Vision read small kana correctly
-        Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(
-            cg_image, {}).performRequests_error_([request], None)
-
-        # ── Post-OCR isolation guard (mirrors _run_apple_single in compare script) ──
-        # Apple Vision bounding boxes use normalised coordinates (0–1, origin at
-        # bottom-left). Convert box heights to pixel units so the same 1.5×median_h
-        # threshold used in the image-level CC pass applies consistently here.
-        img_h = frame.shape[0]
-
-        if raw_observations:
-            candidates = []
-            for text, bbox in raw_observations:
-                px_h = bbox.size.height * img_h
-                # Vertical centre in pixel coords (VN origin is bottom-left → flip)
-                cy   = (1.0 - (bbox.origin.y + bbox.size.height / 2.0)) * img_h
-                candidates.append((text, px_h, cy))
-
-            sorted_h    = sorted(h for _, h, _ in candidates)
-            furi_thresh = sorted_h[0]
-            if len(sorted_h) >= 2:
-                gaps = [(sorted_h[i + 1] - sorted_h[i], i) for i in range(len(sorted_h) - 1)]
-                max_gap, gap_idx = max(gaps)
-                if max_gap > sorted_h[-1] * 0.20:
-                    furi_thresh = sorted_h[gap_idx + 1]
-
-            median_h      = float(np.median(sorted_h))
-            large_centres = [cy for _, h, cy in candidates if h >= furi_thresh]
-
-            kept = []
-            for text, px_h, cy in candidates:
-                if px_h >= furi_thresh:
-                    kept.append(text)
-                elif large_centres and any(abs(cy - lc) < median_h * 1.5 for lc in large_centres):
-                    kept.append(text)   # small kana on same line as main text — keep
-                # else: isolated small observation → furigana, silently dropped
-
-            japanese = " ".join(kept).strip()
-        else:
-            japanese = ""
-
+        result = _paddle_ocr.predict(tmp_path)
     finally:
         os.unlink(tmp_path)
+
+    all_texts, all_scores, all_heights, all_centres = [], [], [], []
+    for res in (result or []):
+        polys  = res.get("rec_polys") or res.get("rec_boxes") or []
+        t_list = res.get("rec_texts") or []
+        s_list = res.get("rec_scores") or []
+        for poly, t, s in zip(polys, t_list, s_list):
+            pts   = np.array(poly)
+            y_min = float(pts[:, 1].min())
+            y_max = float(pts[:, 1].max())
+            all_texts.append(t)
+            all_scores.append(s)
+            all_heights.append(y_max - y_min)
+            all_centres.append((y_min + y_max) / 2.0)
+
+    # Sort top-to-bottom by vertical centre
+    if all_texts:
+        combined = sorted(
+            zip(all_texts, all_scores, all_heights, all_centres),
+            key=lambda x: x[3]
+        )
+        all_texts, all_scores, all_heights, all_centres = map(list, zip(*combined))
+
+    if all_heights:
+        # Bimodal gap split to find furigana/main-text height boundary
+        sorted_h    = sorted(all_heights)
+        furi_thresh = sorted_h[0]
+        if len(sorted_h) >= 2:
+            gaps = [(sorted_h[i + 1] - sorted_h[i], i) for i in range(len(sorted_h) - 1)]
+            max_gap, gap_idx = max(gaps)
+            if max_gap > sorted_h[-1] * 0.20:
+                furi_thresh = sorted_h[gap_idx + 1]
+        median_h      = float(np.median(all_heights))
+        large_centres = [c for h, c in zip(all_heights, all_centres) if h >= furi_thresh]
+        filtered = []
+        for t, s, h, cy in zip(all_texts, all_scores, all_heights, all_centres):
+            if h >= furi_thresh:
+                filtered.append((t, s))
+            elif large_centres and any(abs(cy - lc) < median_h * 1.5 for lc in large_centres):
+                filtered.append((t, s))
+        texts  = [t for t, _ in filtered]
+        scores = [s for _, s in filtered]
+    else:
+        texts, scores = all_texts, all_scores
+
+    # Post-processing: fixes + noise filter, scores kept in sync
+    filtered_pairs = _postprocess_paddle(list(zip(texts, scores)))
+    texts = [t for t, _ in filtered_pairs]
+
     elapsed_ms = round((time.perf_counter() - t0) * 1000)
-    # print(f"⏱  [ocr] {elapsed_ms}ms  →  {japanese}")
+    japanese = "\n".join(texts)
     return japanese, elapsed_ms
 
 def clean_ocr(text):
@@ -1099,103 +1136,30 @@ def call_learn(japanese, vocab, ocr_ms=0):
 
 # ── Preprocessing ─────────────────────────────────────────────────────────────
 
-def remove_furigana_components(arr_gray):
-    """
-    Connected-component furigana removal with vertical-isolation guard.
-
-    Operates on a grayscale numpy array (uint8). Small glyphs (below 55% of
-    the median component height) are blanked unless they share a vertical band
-    with a large neighbour — protecting small kana like ゃ/っ/ょ that appear
-    inside main-text words (じゃ, って) from being incorrectly removed.
-
-    Works on both dark-bg/light-text and light-bg/dark-text images.
-    Returns a grayscale numpy array with furigana pixels set to background.
-    """
-    dark_bg = np.mean(arr_gray) < 127
-    binary  = cv2.threshold(arr_gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-
-    if num_labels <= 1:
-        return arr_gray
-
-    heights = [stats[i, cv2.CC_STAT_HEIGHT] for i in range(1, num_labels)]
-    if not heights:
-        return arr_gray
-
-    median_h           = float(np.median(heights))
-    furigana_threshold = median_h * 0.55
-
-    # Vertical centres for all components (index i-1 corresponds to label i)
-    centres = [
-        stats[i, cv2.CC_STAT_TOP] + stats[i, cv2.CC_STAT_HEIGHT] / 2.0
-        for i in range(1, num_labels)
-    ]
-
-    large_indices = [
-        idx for idx in range(len(centres))
-        if stats[idx + 1, cv2.CC_STAT_HEIGHT] >= furigana_threshold
-    ]
-
-    out      = arr_gray.copy()
-    bg_value = 255 if not dark_bg else 0
-
-    for i in range(1, num_labels):
-        h = stats[i, cv2.CC_STAT_HEIGHT]
-        w = stats[i, cv2.CC_STAT_WIDTH]
-
-        if h >= furigana_threshold or w >= median_h * 2:
-            continue  # large enough to be main text — keep unconditionally
-
-        cy = centres[i - 1]
-
-        # Isolation guard: keep small components that share a vertical band with
-        # a large component — these are small kana embedded in main-text words.
-        has_large_neighbour = any(
-            abs(centres[j] - cy) < median_h * 1.5
-            for j in large_indices
-        )
-
-        if not has_large_neighbour:
-            out[labels == i] = bg_value
-
-    return out
-
-
 def preprocess_crop(crop):
-    """
-    CC-based preprocessor (replaces the original row-density version).
-
-    Pipeline:
-      1. Threshold at 160 → isolate bright pixels                (same as before)
-      2. 2× Lanczos upscale + 20px black border                  (same as before)
-      3. remove_furigana_components() — CC glyph-level removal   (replaces row-density pass)
-
-    Improvements over the original row-density approach:
-      • Glyph-level precision — individual components evaluated, not whole rows.
-      • Isolation guard — small kana (ゃ/っ/ょ) next to large characters are kept,
-        preventing corruptions like じゃ → じや.
-      • Background-agnostic — works on dark-bg and light-bg UI screens alike.
-    """
+    """Zelda preset preprocessing.
+    Pipeline: threshold-160 → row-density furigana suppression → 2x Lanczos → black border.
+    Matches the 'zelda' preset in japanese_ocr_compare.py exactly."""
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
         return crop.copy()
-
     result = np.zeros_like(crop)
     result[mask == 255] = (255, 255, 255)
-    # NOTE: row-density furigana pass omitted intentionally — replaced by CC below.
-
+    # Row-density furigana suppression — rows with fewer bright pixels than
+    # 42% of the median non-zero row density are blanked out.
+    row_density = mask.sum(axis=1) / 255.0
+    non_zero_densities = row_density[row_density > 0]
+    if len(non_zero_densities) > 0:
+        median_density     = float(np.median(non_zero_densities))
+        furigana_threshold = median_density * 0.42
+        for i, d in enumerate(row_density):
+            if 0 < d < furigana_threshold:
+                result[i, :] = 0
     h, w   = result.shape[:2]
     result = cv2.resize(result, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
     result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-
-    # CC-based furigana removal on the upscaled grayscale image
-    gray_up        = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
-    gray_cleaned   = remove_furigana_components(gray_up)
-    result_cleaned = cv2.cvtColor(gray_cleaned, cv2.COLOR_GRAY2BGR)
-
-    return result_cleaned
+    return result
 
 # ── Bounds loading ─────────────────────────────────────────────────────────────
 
@@ -1317,7 +1281,7 @@ def ocr_loop(bounds):
 
         try:
             cv2.imwrite(os.path.expanduser("~/Downloads/ocr_input.jpg"), cleaned)
-            jp, ocr_ms = apple_vision_ocr(cleaned)
+            jp, ocr_ms = paddle_ocr(cleaned)
             jp = clean_ocr(jp)
             state["ocr_timing"] = {"ocr_ms": ocr_ms}
 
@@ -1404,7 +1368,6 @@ def translate_loop():
                 "translation": translation,
             }
             push_history(history_entry)
-            log_entry(state.get("brightness", 0), jp, translation)
             state["status"] = "Live"
             print(f"🔤  {jp} → {translation}")
         except Exception as e:
@@ -2348,7 +2311,6 @@ def acknowledge():
         "translation": state['lesson'].get("translation", ""),
     }
     push_history(history_entry)
-    log_entry(state.get('brightness', 0), state['lesson_japanese'], state['lesson'].get("translation", ""))
 
     state['lesson_pending_ack'] = False
     state['lesson_japanese']    = ''

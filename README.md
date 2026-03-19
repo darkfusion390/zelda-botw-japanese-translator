@@ -1,4 +1,4 @@
-# Zelda Translator
+# Calamity Ganon's Captions
 
 Real-time Japanese dialogue translator and vocabulary trainer for Nintendo Switch games. Points a phone camera at your TV, reads the dialogue box, and gives you a live translation plus a full word-by-word breakdown to help you learn Japanese as you play.
 

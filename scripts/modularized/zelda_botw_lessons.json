@@ -1,0 +1,290 @@
+[
+  {
+    "time": "2026-03-18 18:38:37",
+    "japanese": "何か刺を与えると変化するに",
+    "romaji": "nan ka sashi wo ataeru to henka suru ni",
+    "translation": "Something changes when you give it a prick...",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "何",
+        "reading": "nan",
+        "meaning": "what",
+        "role": "pronoun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "か",
+        "reading": "ka",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "刺",
+        "reading": "sashi",
+        "meaning": "between (e.g. two people)",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "を",
+        "reading": "wo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "与える",
+        "reading": "ataeru",
+        "meaning": "to give (esp. to someone of lower status",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "と",
+        "reading": "to",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "変化",
+        "reading": "henka",
+        "meaning": "change",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "する",
+        "reading": "suru",
+        "meaning": "to do",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "に",
+        "reading": "ni",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "何",
+        "reading": "ka",
+        "meaning": "what",
+        "example": "なに",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "刺",
+        "reading": "shi",
+        "meaning": "thorn",
+        "example": "し",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "与",
+        "reading": "yo",
+        "meaning": "bestow",
+        "example": "むた",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "変",
+        "reading": "hen",
+        "meaning": "unusual",
+        "example": "へん",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "化",
+        "reading": "ka",
+        "meaning": "change",
+        "example": "か",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-18 18:38:40",
+    "japanese": "焦るでない・・ もう少しばかり先じゃ ついてまいれ",
+    "romaji": "aseru de nai ・ ・ mou sukoshi bakari saki ja tsui te maire",
+    "translation": "Don't panic… Just a little further ahead, and you'll catch up.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "焦る",
+        "reading": "aseru",
+        "meaning": "to be in a hurry",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "で",
+        "reading": "de",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ない",
+        "reading": "nai",
+        "meaning": "nonexistent",
+        "role": "adjective",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "・",
+        "reading": "・",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "・",
+        "reading": "・",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "もう",
+        "reading": "mou",
+        "meaning": "now",
+        "role": "adverb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "少し",
+        "reading": "sukoshi",
+        "meaning": "small quantity",
+        "role": "adverb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ばかり",
+        "reading": "bakari",
+        "meaning": "only",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "先",
+        "reading": "saki",
+        "meaning": "a short while ago",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じゃ",
+        "reading": "ja",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "つい",
+        "reading": "tsui",
+        "meaning": "to take (seat, position, course, office,",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "て",
+        "reading": "te",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "まいれ",
+        "reading": "maire",
+        "meaning": "to go",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "焦",
+        "reading": "shou",
+        "meaning": "char",
+        "example": "",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "少",
+        "reading": "shou",
+        "meaning": "few",
+        "example": "しょう",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "先",
+        "reading": "sen",
+        "meaning": "before",
+        "example": "さっき",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-18 18:45:15",
+    "japanese": "チュチュゼリー",
+    "romaji": "chuchu zerii",
+    "translation": "Tutu Zeri",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "チュチュ",
+        "reading": "chuchu",
+        "meaning": "ballet skirt",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ゼリー",
+        "reading": "zerii",
+        "meaning": "jello (gelatin-based dessert)",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": []
+  }
+]
