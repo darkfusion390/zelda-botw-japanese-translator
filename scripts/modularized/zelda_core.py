@@ -117,7 +117,7 @@ QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 # row to ocr_training_log.csv every time Gate 4 passes — i.e. once per unique
 # stable dialogue line that will trigger an LLM call. One image per new line,
 # never duplicates. Both image save and CSV append share this single toggle.
-OCR_TRAINING_ENABLED = False
+OCR_TRAINING_ENABLED = True
 OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
 OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_log.csv")
 
@@ -571,10 +571,15 @@ def normalize_for_dedup(text):
     (differing only in spacing or ellipses) map to the same key."""
     return re.sub(r'[\s、。・…]', '', text)
 
-def fuzzy_same(a, b, max_diff=1):
+def fuzzy_same(a, b, max_diff=None):
     """True if a and b differ by at most max_diff characters (edit distance).
-    Used for Gate 4 so minor OCR noise doesn't re-fire the LLM."""
+    Used for Gate 4 so minor OCR noise doesn't re-fire the LLM.
+    Tolerance scales with length: max(2, len(a) // 6) — e.g. a 12-char string
+    allows 2 differences, an 18-char string allows 3. Handles kanji OCR variance
+    where a single complex character (e.g. 激) is occasionally dropped or misread."""
     a, b = normalize_for_dedup(a), normalize_for_dedup(b)
+    if max_diff is None:
+        max_diff = max(2, len(a) // 6)
     if a == b:
         return True
     if abs(len(a) - len(b)) > max_diff:
@@ -1150,7 +1155,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
 def ocr_loop(bounds):
     """Runs OCR continuously. When text passes all stability/dedup gates,
     writes to latest_stable_jp so both translate and learn loops can consume it."""
-    STABLE_THRESHOLD   = 4
+    STABLE_THRESHOLD   = 3
     MIN_JAPANESE_CHARS = 4
     text_stable = {"text": "", "stable_count": 0}
 
@@ -1187,7 +1192,7 @@ def ocr_loop(bounds):
             cv2.imwrite(os.path.expanduser("~/Downloads/ocr_input.jpg"), cleaned)
             jp, ocr_ms = _ocr_fn(cleaned)
             jp = clean_ocr(jp)
-            print(f"🔍  OCR: {jp}")
+            print(f"🔍  OCR: {time.strftime('%H:%M:%S')} {jp}")
             state["ocr_timing"] = {"ocr_ms": ocr_ms}
 
             # Gate 1: empty
@@ -1217,7 +1222,7 @@ def ocr_loop(bounds):
                 state["status"] = f"Reading... ({text_stable['stable_count']}/{STABLE_THRESHOLD})"
                 continue
 
-            # Gate 4: only publish if different from last published (fuzzy 1-char tolerance)
+            # Gate 4: only publish if different from last published (fuzzy tolerance)
             with latest_stable_lock:
                 last = latest_stable_jp["text"]
             if not fuzzy_same(jp, last):
