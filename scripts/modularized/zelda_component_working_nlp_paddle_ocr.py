@@ -12,34 +12,6 @@ import tempfile
 import time
 import threading
 import zelda_core
-
-# ── NLP libraries (romaji / segmentation / dictionary) ────────────────────────
-import fugashi
-import pykakasi
-from jamdict import Jamdict
-
-# Initialise once at module load — these are expensive to spin up per-call.
-# fugashi wraps MeCab, the standard Japanese morphological analyser. It segments
-# sentences into tokens and provides POS tags, readings, and lemma forms.
-# pykakasi converts Japanese (kana/kanji) to romaji using hepburn romanisation.
-# Jamdict wraps JMdict, the standard Japanese-English dictionary database.
-# jamdict-data must be installed separately: pip install jamdict-data
-# PaddleOCR — Japanese OCR engine. More robust than manga-ocr on italic/bold
-# game fonts like Zelda BotW's dialogue. use_angle_cls detects rotated text.
-# use_gpu=False for CPU-only; set True if CUDA is available for faster inference.
-_tagger   = fugashi.Tagger()
-_kakasi   = pykakasi.kakasi()
-# Jamdict wraps a SQLite connection which cannot be shared across threads.
-# Use threading.local() so each thread gets its own Jamdict instance,
-# created lazily on first use — avoids the "SQLite object created in a
-# different thread" error when learn_loop calls lookup from a daemon thread.
-_jmd_local = threading.local()
-
-def _get_jmd():
-    """Return this thread's Jamdict instance (thread-local, created on first call)."""
-    if not hasattr(_jmd_local, 'jmd'):
-        _jmd_local.jmd = Jamdict()
-    return _jmd_local.jmd
 _mocr = PaddleOCR(
     lang='japan',
     ocr_version='PP-OCRv3',

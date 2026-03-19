@@ -108,6 +108,7 @@ GAME_NAME    = "zelda_botw_"
 VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "vocab.json")
 LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "lessons.json")
 CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "translation_cache.json")
+METRICS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "metrics.csv")
 PREVIEW_PATH = os.path.expanduser("~/Downloads/preprocessed_crop.jpg")
 BOUNDS_FILE  = "bounds.json"
 QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
@@ -120,6 +121,12 @@ QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 OCR_TRAINING_ENABLED = True
 OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
 OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_log.csv")
+
+# ── LLM metrics collection ────────────────────────────────────────────
+# When enabled, appends one row to llm_metrics.csv for every frame that reaches
+# an actual LLM call (cache hits are excluded). Columns: timestamp, japanese,
+# preprocess_ms, per-region ocr_ms, total_ocr_ms, llm_ms, total_ms.
+METRICS_ENABLED = True
 
 # ── Brightness gate ───────────────────────────────────────────────────────────
 BRIGHTNESS_GATE_HIGH = 80.0
@@ -1205,7 +1212,7 @@ def frame_capture_thread():
             latest_frame = frame
 
 # ── Shared OCR output — written by OCR loop, read by translate + learn loops ───
-latest_stable_jp     = {"text": "", "ocr_ms": 0, "group": ""}
+latest_stable_jp     = {"text": "", "ocr_ms": 0, "group": "", "preprocess_ms": 0, "region_ocr_ms": {}}
 latest_stable_lock   = threading.Lock()
 
 # ── OCR training data helpers ──────────────────────────────────────────────────
@@ -1232,6 +1239,35 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
         print(f"📸  OCR training sample saved: {img_name}")
     except Exception as e:
         print(f"⚠️  OCR training save failed: {e}")
+
+def _write_metrics_row(japanese: str, preprocess_ms: int, region_ocr_ms: dict,
+                       total_ocr_ms: int, llm_ms: int):
+    """Append one row to llm_metrics.csv for every frame that reached an LLM call.
+    Columns: timestamp, japanese, preprocess_ms, one column per region (ocr_ms),
+    total_ocr_ms, llm_ms, total_ms.
+    Written in a background thread — never blocks the translate loop.
+    The header is written only when the file is created for the first time."""
+    try:
+        file_exists  = os.path.exists(METRICS_FILE)
+        region_names = sorted(region_ocr_ms.keys())
+        total_ms     = preprocess_ms + total_ocr_ms + llm_ms
+        with open(METRICS_FILE, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                header = (
+                    ["timestamp", "japanese", "preprocess_ms"]
+                    + [f"ocr_{r}_ms" for r in region_names]
+                    + ["total_ocr_ms", "llm_ms", "total_ms"]
+                )
+                writer.writerow(header)
+            row = (
+                [time.strftime("%Y-%m-%d %H:%M:%S"), japanese, preprocess_ms]
+                + [region_ocr_ms.get(r, 0) for r in region_names]
+                + [total_ocr_ms, llm_ms, total_ms]
+            )
+            writer.writerow(row)
+    except Exception as e:
+        print(f"⚠️  Metrics write failed: {e}")
 
 # ── OCR loop — multi-region winner selection + stability gates ─────────────────
 #
@@ -1439,9 +1475,11 @@ def ocr_loop(regions, groups):
                 last = latest_stable_jp["text"]
             if not fuzzy_same(jp, last):
                 with latest_stable_lock:
-                    latest_stable_jp["text"]   = jp
-                    latest_stable_jp["ocr_ms"] = total_ms
-                    latest_stable_jp["group"]  = winner
+                    latest_stable_jp["text"]          = jp
+                    latest_stable_jp["ocr_ms"]        = total_ms
+                    latest_stable_jp["group"]         = winner
+                    latest_stable_jp["preprocess_ms"] = preprocess_ms
+                    latest_stable_jp["region_ocr_ms"] = dict(region_ocr_ms)
                 vocab = load_vocab()
                 state["japanese"]  = jp
                 state["annotated"] = annotate_japanese(jp, vocab)
@@ -1472,9 +1510,11 @@ def translate_loop():
 
     while True:
         with latest_stable_lock:
-            jp     = latest_stable_jp["text"]
-            ocr_ms = latest_stable_jp["ocr_ms"]
-            group  = latest_stable_jp["group"]
+            jp             = latest_stable_jp["text"]
+            ocr_ms         = latest_stable_jp["ocr_ms"]
+            group          = latest_stable_jp["group"]
+            preprocess_ms  = latest_stable_jp["preprocess_ms"]
+            region_ocr_ms  = dict(latest_stable_jp["region_ocr_ms"])
 
         if not jp or jp == last_translated:
             time.sleep(0.1)
@@ -1487,6 +1527,13 @@ def translate_loop():
             state["translate_romaji"]      = romaji
             state["translate_translation"] = translation
             state["translation_timing"]    = {"llm_ms": llm_ms, "total_ms": ocr_ms + llm_ms}
+            # Write metrics row only when a real LLM call fired (cache hits have llm_ms == 0)
+            if METRICS_ENABLED and llm_ms > 0:
+                threading.Thread(
+                    target=_write_metrics_row,
+                    args=(jp, preprocess_ms, region_ocr_ms, ocr_ms, llm_ms),
+                    daemon=True,
+                ).start()
             # Write to per-group translation store so each group's window updates independently
             if group:
                 vocab = load_vocab()

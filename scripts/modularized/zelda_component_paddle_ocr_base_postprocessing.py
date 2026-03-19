@@ -4,7 +4,6 @@ zelda_translator_paddle_ocr_base_postprocessing.py
 Variant: PaddleOCR v5 mobile  |  Postprocessing: exact-string fixes + noise filter
 Preprocessing: row-density furigana suppression
 """
-from PIL import Image
 from paddleocr import PaddleOCR
 import cv2
 import numpy as np
