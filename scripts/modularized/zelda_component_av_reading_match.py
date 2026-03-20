@@ -219,7 +219,11 @@ def preprocess_crop(crop):
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
-        return crop.copy()
+        # Nothing survived the threshold — crop is too dark to contain text.
+        # Return a black frame at the upscaled size so downstream always gets
+        # a consistent pure B&W image rather than a raw color frame.
+        h, w = crop.shape[:2]
+        return np.zeros((h * 2 + 40, w * 2 + 40, 3), dtype=np.uint8)
     row_density = mask.sum(axis=1) / 255.0
     result = np.zeros_like(crop)
     result[mask == 255] = (255, 255, 255)

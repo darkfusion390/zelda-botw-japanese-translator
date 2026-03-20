@@ -4,12 +4,14 @@ zelda_translator_paddle_reading_match.py
 Variant: PaddleOCR v5 mobile  |  Postprocessing: reading-match furigana filter
 Preprocessing: row-density furigana suppression
 """
+import os
+os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 import re
+import threading
 from PIL import Image
 from paddleocr import PaddleOCR
 import cv2
 import numpy as np
-import os
 import tempfile
 import time
 import zelda_core
@@ -28,6 +30,15 @@ _paddle_ocr = PaddleOCR(
     use_textline_orientation=False,
     device="cpu",
 )
+# PaddleOCR's predict() is not thread-safe on a shared model instance.
+_paddle_lock = threading.Lock()
+
+_EXACT_FIXES = {
+    # Add zero-false-positive exact-string substitutions here as they are
+    # discovered. Each entry must be verified against Japanese vocabulary
+    # before adding — a wrong fix here silently corrupts correct output.
+    # e.g. "誤認パターン": "正しい文字列",
+}
 
 def _fix_exact(text: str) -> str:
     """Apply targeted exact-string substitutions from _EXACT_FIXES.
@@ -188,7 +199,8 @@ def paddle_ocr(frame):
     cv2.imwrite(tmp_path, frame)
 
     try:
-        result = _paddle_ocr.predict(tmp_path)
+        with _paddle_lock:
+            result = _paddle_ocr.predict(tmp_path)
     finally:
         os.unlink(tmp_path)
 
@@ -258,7 +270,11 @@ def preprocess_crop(crop):
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
-        return crop.copy()
+        # Nothing survived the threshold — crop is too dark to contain text.
+        # Return a black frame at the upscaled size so downstream always gets
+        # a consistent pure B&W image rather than a raw color frame.
+        h, w = crop.shape[:2]
+        return np.zeros((h * 2 + 40, w * 2 + 40, 3), dtype=np.uint8)
     row_density = mask.sum(axis=1) / 255.0
     result = np.zeros_like(crop)
     result[mask == 255] = (255, 255, 255)

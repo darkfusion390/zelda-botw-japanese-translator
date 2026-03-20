@@ -108,6 +108,7 @@ GAME_NAME    = "zelda_botw_"
 VOCAB_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "vocab.json")
 LESSONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "lessons.json")
 CACHE_FILE   = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "translation_cache.json")
+METRICS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), GAME_NAME + "metrics.csv")
 PREVIEW_PATH = os.path.expanduser("~/Downloads/preprocessed_crop.jpg")
 BOUNDS_FILE  = "bounds.json"
 QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
@@ -120,6 +121,12 @@ QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 OCR_TRAINING_ENABLED = True
 OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
 OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_log.csv")
+
+# ── LLM metrics collection ────────────────────────────────────────────
+# When enabled, appends one row to llm_metrics.csv for every frame that reaches
+# an actual LLM call (cache hits are excluded). Columns: timestamp, japanese,
+# preprocess_ms, per-region ocr_ms, total_ocr_ms, llm_ms, total_ms.
+METRICS_ENABLED = True
 
 # ── Brightness gate ───────────────────────────────────────────────────────────
 BRIGHTNESS_GATE_HIGH = 80.0
@@ -260,6 +267,12 @@ state = {
     "_pending_learn_ms":   0,             # kept for ack to use in learn_calls increment
     "_pending_ocr_ms":     0,             # kept for ack to use in learn_calls increment
     "bounds":              None,
+    "active_group":        None,
+    "groups_list":         [],
+    "presence_threshold":  0,              # not used — kept for backward compat
+    "group_scores":        {},             # {group_name: int} — Japanese char count per group
+    "region_scores":       {},             # {region_name: int} — char count per region
+    "group_translations":  {},
     "history":             [],
     "ocr_timing":          {"ocr_ms": 0},
     "translation_timing":  {"llm_ms": 0, "total_ms": 0},
@@ -532,6 +545,46 @@ def update_preview(frame):
     with frame_lock:
         latest_frame_jpg = encode_jpg(frame)
 
+# ── Per-group preview storage ─────────────────────────────────────────────────
+# Each group and region gets its own latest JPEG for the preview panels.
+_group_preview_jpgs  = {}   # {group_name: bytes}
+_region_preview_jpgs = {}   # {region_name: bytes}
+_group_preview_lock  = threading.Lock()
+
+def update_group_preview(group_name, frame):
+    """Store the latest preprocessed frame for a specific group's preview panel."""
+    if frame is None or frame.size == 0:
+        frame = np.zeros((80, 320, 3), dtype=np.uint8)
+    jpg = encode_jpg(frame)
+    with _group_preview_lock:
+        _group_preview_jpgs[group_name] = jpg
+
+def update_region_preview(region_name, frame):
+    """Store the latest preprocessed frame for a specific region's preview sub-panel."""
+    if frame is None or frame.size == 0:
+        frame = np.zeros((80, 320, 3), dtype=np.uint8)
+    jpg = encode_jpg(frame)
+    with _group_preview_lock:
+        _region_preview_jpgs[region_name] = jpg
+
+def group_mjpeg_generator(group_name):
+    """Yield MJPEG frames for a specific group's preview stream."""
+    blank = encode_jpg(np.zeros((80, 320, 3), dtype=np.uint8))
+    while True:
+        with _group_preview_lock:
+            jpg = _group_preview_jpgs.get(group_name, blank)
+        yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpg + b"\r\n"
+        time.sleep(0.12)
+
+def region_mjpeg_generator(region_name):
+    """Yield MJPEG frames for a specific region's preview sub-panel."""
+    blank = encode_jpg(np.zeros((80, 320, 3), dtype=np.uint8))
+    while True:
+        with _group_preview_lock:
+            jpg = _region_preview_jpgs.get(region_name, blank)
+        yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpg + b"\r\n"
+        time.sleep(0.15)
+
 def mjpeg_generator():
     """Yield MJPEG boundary frames for the /preview endpoint.
     Reads the latest JPEG from latest_frame_jpg under frame_lock,
@@ -746,6 +799,7 @@ def call_translate(japanese, ocr_ms=0):
     # ── Cache miss — NLP romaji then LLM ─────────────────────────────────────
     romaji = build_romaji_only(japanese)
     cache_claim(japanese)
+    print(f"🔥  LLM TRANSLATE CALL FIRED → '{japanese}'")
     raw, elapsed_ms = ollama_call(TRANSLATE_PROMPT.format(japanese=japanese))
     state["translate_ms"]     = ocr_ms + elapsed_ms
     state["translate_ocr_ms"] = ocr_ms
@@ -1064,16 +1118,19 @@ def register_ocr_backend(ocr_fn, preprocess_fn):
     _preprocess_fn = preprocess_fn
 
 def load_bounds():
-    """Load the crop bounding box from bounds.json and return it as a dict.
-    Expects keys x, y, w, h (integers). Exits with an error message if
-    the file is missing — caller must run calibrate.py first."""
+    """Load named crop regions from bounds.json.
+    New format: dict of region_name → {x, y, w, h, group}.
+    group is a string (regions sharing a group name are coupled) or null (ungrouped).
+    Exits with an error message if the file is missing — run calibrate.py first.
+
+    Returns:
+        regions: dict  — {region_name: {x, y, w, h, group}}
+        groups:  dict  — {group_name: [region_name, ...]}  (ungrouped regions become
+                          their own single-member group named after themselves)
+    """
     try:
         with open(BOUNDS_FILE, "r") as f:
             data = json.load(f)
-        assert all(k in data for k in ("x", "y", "w", "h")), "Missing keys"
-        bounds = {k: int(data[k]) for k in ("x", "y", "w", "h")}
-        print(f"📦  Bounds loaded: x={bounds['x']} y={bounds['y']} w={bounds['w']} h={bounds['h']}")
-        return bounds
     except FileNotFoundError:
         print(f"❌  {BOUNDS_FILE} not found — run calibrate.py first.")
         raise SystemExit(1)
@@ -1081,49 +1138,81 @@ def load_bounds():
         print(f"❌  Failed to load {BOUNDS_FILE}: {e}")
         raise SystemExit(1)
 
-def crop_to_bounds(frame, bounds):
-    """Slice a BGR frame to the region defined by bounds dict (x, y, w, h).
-    Clamps to frame dimensions so out-of-range bounds never raise an error."""
-    h, w = frame.shape[:2]
-    x  = max(0, bounds["x"])
-    y  = max(0, bounds["y"])
-    x2 = min(w, x + bounds["w"])
-    y2 = min(h, y + bounds["h"])
+    regions = {}
+
+    # Detect old single-region format {"x": int, "y": int, "w": int, "h": int}
+    # and exit with a clear message rather than a cryptic TypeError.
+    if all(k in data for k in ("x", "y", "w", "h")) and isinstance(data.get("x"), int):
+        print("❌  bounds.json is in the old single-region format.")
+        print("    Re-run calibrate.py to create the new named-regions format.")
+        raise SystemExit(1)
+
+    for name, b in data.items():
+        if not all(k in b for k in ("x", "y", "w", "h")):
+            print(f"❌  Region '{name}' missing x/y/w/h keys.")
+            raise SystemExit(1)
+        regions[name] = {
+            "x":     int(b["x"]),
+            "y":     int(b["y"]),
+            "w":     int(b["w"]),
+            "h":     int(b["h"]),
+            "group": b.get("group") or None,
+        }
+
+    groups = build_groups(regions)
+
+    print(f"📦  Loaded {len(regions)} region(s) in {len(groups)} group(s):")
+    for gname, members in groups.items():
+        print(f"    [{gname}] → {members}")
+
+    return regions, groups
+
+
+def build_groups(regions):
+    """Collapse regions into logical groups based on their 'group' field.
+    Ungrouped regions (group=None) become their own single-member group
+    named after themselves. Returns {group_name: [region_name, ...]}."""
+    groups = {}
+    for name, b in regions.items():
+        gname = b["group"] if b["group"] else name
+        groups.setdefault(gname, []).append(name)
+    return groups
+
+
+def crop_region(frame, region):
+    """Slice a BGR frame to a region dict (x, y, w, h).
+    Clamps to frame dimensions so out-of-range bounds never raise."""
+    fh, fw = frame.shape[:2]
+    x  = max(0, region["x"])
+    y  = max(0, region["y"])
+    x2 = min(fw, x + region["w"])
+    y2 = min(fh, y + region["h"])
     return frame[y:y2, x:x2]
 
-# ── Camera threads ─────────────────────────────────────────────────────────────
+# latest_frame holds the most recent full BGR frame from the capture device.
+# ocr_loop crops it per-region each iteration — no single-bounds assumption.
+latest_frame      = None
+latest_frame_lock = threading.Lock()
 
-latest_crop      = None
-latest_crop_lock = threading.Lock()
-
-def pixel_diff_thread(bounds):
-    """Background thread: continuously reads frames from VIDEO_SOURCE and
-    writes the latest cropped frame to latest_crop under latest_crop_lock.
-    Also updates state["diff_value"] with the per-frame pixel difference
-    so the UI can show how much the dialogue region is changing."""
-    global latest_crop
-    cap_diff = cv2.VideoCapture(VIDEO_SOURCE)
-    if not cap_diff.isOpened():
-        print("⚠️  Pixel diff thread: cannot open camera")
+def frame_capture_thread():
+    """Background thread: continuously reads full frames from VIDEO_SOURCE
+    and writes the latest one to latest_frame under latest_frame_lock.
+    ocr_loop reads from here and crops per-region each iteration."""
+    global latest_frame
+    cap = cv2.VideoCapture(VIDEO_SOURCE)
+    if not cap.isOpened():
+        print("⚠️  Frame capture thread: cannot open camera")
         return
-    prev_crop = None
     while True:
-        ret, frame = cap_diff.read()
+        ret, frame = cap.read()
         if not ret:
-            time.sleep(0.1)
+            time.sleep(0.05)
             continue
-        crop = crop_to_bounds(frame, bounds)
-        if crop.size == 0:
-            time.sleep(0.1)
-            continue
-        with latest_crop_lock:
-            latest_crop = crop.copy()
-        if prev_crop is not None and prev_crop.shape == crop.shape:
-            state["diff_value"] = round(frame_diff(prev_crop, crop), 2)
-        prev_crop = crop.copy()
+        with latest_frame_lock:
+            latest_frame = frame
 
 # ── Shared OCR output — written by OCR loop, read by translate + learn loops ───
-latest_stable_jp     = {"text": "", "ocr_ms": 0}
+latest_stable_jp     = {"text": "", "ocr_ms": 0, "group": "", "preprocess_ms": 0, "region_ocr_ms": {}}
 latest_stable_lock   = threading.Lock()
 
 # ── OCR training data helpers ──────────────────────────────────────────────────
@@ -1138,6 +1227,7 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
         ts        = time.strftime("%Y%m%d_%H%M%S")
         img_name  = f"training_image_{ts}.jpg"
         img_path  = os.path.join(OCR_TRAINING_DIR, img_name)
+        # temporarily turning off image save function to avoid filling up disk during development — re-enable when needed
         cv2.imwrite(img_path, raw_crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
         # Append row to shared CSV: image_name, ocr_text, source_file
         csv_exists = os.path.exists(OCR_TRAINING_CSV)
@@ -1150,94 +1240,272 @@ def _save_ocr_training_sample(raw_crop, japanese: str):
     except Exception as e:
         print(f"⚠️  OCR training save failed: {e}")
 
-# ── OCR loop — continuously reads camera, runs stability gates, publishes stable text ──
+def _write_metrics_row(japanese: str, preprocess_ms: int, region_ocr_ms: dict,
+                       total_ocr_ms: int, llm_ms: int):
+    """Append one row to llm_metrics.csv for every frame that reached an LLM call.
+    Columns: timestamp, japanese, preprocess_ms, one column per region (ocr_ms),
+    total_ocr_ms, llm_ms, total_ms.
+    Written in a background thread — never blocks the translate loop.
+    The header is written only when the file is created for the first time."""
+    try:
+        file_exists  = os.path.exists(METRICS_FILE)
+        region_names = sorted(region_ocr_ms.keys())
+        total_ms     = preprocess_ms + total_ocr_ms + llm_ms
+        with open(METRICS_FILE, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                header = (
+                    ["timestamp", "japanese", "preprocess_ms"]
+                    + [f"ocr_{r}_ms" for r in region_names]
+                    + ["total_ocr_ms", "llm_ms", "total_ms"]
+                )
+                writer.writerow(header)
+            row = (
+                [time.strftime("%Y-%m-%d %H:%M:%S"), japanese, preprocess_ms]
+                + [region_ocr_ms.get(r, 0) for r in region_names]
+                + [total_ocr_ms, llm_ms, total_ms]
+            )
+            writer.writerow(row)
+    except Exception as e:
+        print(f"⚠️  Metrics write failed: {e}")
 
-def ocr_loop(bounds):
-    """Runs OCR continuously. When text passes all stability/dedup gates,
-    writes to latest_stable_jp so both translate and learn loops can consume it."""
-    STABLE_THRESHOLD   = 3
-    MIN_JAPANESE_CHARS = 4
-    text_stable = {"text": "", "stable_count": 0}
+# ── OCR loop — multi-region winner selection + stability gates ─────────────────
+#
+# Architecture:
+#   Each frame the loop either runs a cheap presence check across all groups
+#   (Path A — no locked group) or runs full OCR on the locked group only
+#   (Path B — group is locked).
+#
+#   Presence check: Canny edge density on the preprocessed crop.
+#   Text-on-dark-background crops produce dense structured edges; empty or
+#   gameplay crops produce very few. Score = mean pixel value of the Canny map.
+#   Group score = sum of member region scores (favours groups with more active
+#   regions, handles overlap by requiring both members to score high).
+#
+#   Hysteresis lock: once a group wins it holds the lock until its score drops
+#   below PRESENCE_THRESHOLD for LOCK_RELEASE_FRAMES consecutive frames.
+#   This prevents mid-stability flickering caused by an overlapping region
+#   briefly outscoring the active one on a noisy frame.
+#
+#   Grouped OCR: when the locked group has multiple members, each member is
+#   OCR'd separately and the results are concatenated in definition order.
+#   This solves the item_title/item_body Vision reliability problem — each
+#   crop contains text of uniform size, improving Vision's hit rate.
 
-    threading.Thread(target=pixel_diff_thread, args=(bounds,), daemon=True).start()
+def ocr_loop(regions, groups):
+    """Runs OCR on ALL groups every frame.
+    Winner = group with the highest total Japanese character count above
+    MIN_GROUP_CHARS. Vision calls run concurrently across all regions —
+    wall time is the slowest single call rather than the sum.
+    Winner feeds the stability gates; other groups reset on winner change."""
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    STABLE_THRESHOLD  = 3    # consecutive identical reads before publishing
+    MIN_GROUP_CHARS   = 4    # minimum combined chars for a group to be considered active
+    MIN_REGION_CHARS  = 2    # minimum chars for a region to contribute to group total
+
+    # Per-group stability state
+    group_state = {g: {"text": "", "stable_count": 0} for g in groups}
+    last_winner = None
+
+    # Thread pool sized to number of regions — each Vision call gets its own thread
+    n_regions  = len(regions)
+    _executor  = ThreadPoolExecutor(max_workers=n_regions, thread_name_prefix="vision")
+
+    threading.Thread(target=frame_capture_thread, daemon=True).start()
 
     while True:
-        with latest_crop_lock:
-            crop = latest_crop.copy() if latest_crop is not None else None
+        with latest_frame_lock:
+            frame = latest_frame.copy() if latest_frame is not None else None
 
-        if crop is None:
-            time.sleep(0.1)
-            continue
-        if crop.size == 0:
-            state["status"] = "Crop empty — check bounds"
-            time.sleep(1)
+        if frame is None:
+            time.sleep(0.05)
             continue
 
-        brightness = float(np.mean(cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)))
-        state["brightness"] = round(brightness, 1)
-
-        if BRIGHTNESS_ENABLED:
-            if brightness > BRIGHTNESS_GATE_HIGH:
-                state["status"] = f"Gameplay (brightness={brightness:.1f})"
-                continue
-            if brightness < BRIGHTNESS_GATE_LOW:
-                state["status"] = f"Fade/cutscene (brightness={brightness:.1f})"
-                continue
-
-        cleaned = _preprocess_fn(crop)
-        cv2.imwrite(PREVIEW_PATH, cleaned)
-        update_preview(cleaned)
-
+        # ── Step 1: preprocess all regions sequentially (fast, CPU-bound) ────
         try:
-            cv2.imwrite(os.path.expanduser("~/Downloads/ocr_input.jpg"), cleaned)
-            jp, ocr_ms = _ocr_fn(cleaned)
-            jp = clean_ocr(jp)
-            print(f"🔍  OCR: {time.strftime('%H:%M:%S')} {jp}")
-            state["ocr_timing"] = {"ocr_ms": ocr_ms}
+            t0 = time.perf_counter()
+
+            preprocessed = {}   # {rname: (raw_crop, cleaned)}
+            for rname in regions:
+                raw_crop = crop_region(frame, regions[rname])
+                if raw_crop.size == 0:
+                    continue
+                cleaned = _preprocess_fn(raw_crop)
+                update_region_preview(rname, cleaned)
+                preprocessed[rname] = (raw_crop, cleaned)
+
+            preprocess_ms = round((time.perf_counter() - t0) * 1000)
+
+            # ── Step 2: fire all Vision calls concurrently ────────────────────
+            def _ocr_region(rname):
+                """Run OCR on one region. Returns (rname, jp_part, ocr_ms)."""
+                _, cleaned = preprocessed[rname]
+                t = time.perf_counter()
+                try:
+                    jp_part, _ = _ocr_fn(cleaned)
+                except Exception as e:
+                    print(f"⚠️  Vision error [{rname}]: {e}")
+                    jp_part = ""
+                ms = round((time.perf_counter() - t) * 1000)
+                return rname, clean_ocr(jp_part), ms
+
+            t_vision = time.perf_counter()
+            futures  = {_executor.submit(_ocr_region, r): r for r in preprocessed}
+
+            region_text   = {}   # {rname: jp_part}
+            region_chars  = {}   # {rname: int}
+            region_ocr_ms = {}   # {rname: ms}
+
+            for future in as_completed(futures):
+                rname, jp_part, ms = future.result()
+                n_chars = len(jp_part.replace(" ", ""))
+                region_text[rname]   = jp_part
+                region_chars[rname]  = n_chars
+                region_ocr_ms[rname] = ms
+
+            # Regions that had empty crops score zero
+            for rname in regions:
+                if rname not in region_chars:
+                    region_chars[rname]  = 0
+                    region_ocr_ms[rname] = 0
+
+            vision_ms = round((time.perf_counter() - t_vision) * 1000)
+            total_ms  = round((time.perf_counter() - t0) * 1000)
+
+            # ── Step 3: aggregate into groups ─────────────────────────────────
+            group_results = {}
+            for gname, member_names in groups.items():
+                group_texts      = []
+                group_char_count = 0
+                first_cleaned    = None
+
+                for rname in member_names:
+                    if rname not in preprocessed:
+                        continue
+                    if first_cleaned is None:
+                        first_cleaned = preprocessed[rname][1]
+                    n_chars = region_chars.get(rname, 0)
+                    if n_chars >= MIN_REGION_CHARS:
+                        group_texts.append(region_text[rname])
+                        group_char_count += n_chars
+
+                group_results[gname] = {
+                    "text":  " ".join(group_texts).strip(),
+                    "chars": group_char_count,
+                }
+                if first_cleaned is not None:
+                    update_group_preview(gname, first_cleaned)
+
+            # ── Publish scores and timing ──────────────────────────────────────
+            state["group_scores"]  = {g: r["chars"] for g, r in group_results.items()}
+            state["region_scores"] = region_chars
+            state["ocr_timing"]    = {
+                "ocr_ms":        total_ms,
+                "region_ocr_ms": dict(region_ocr_ms),
+            }
+
+            region_log = "  ".join(
+                f"{r}={region_ocr_ms.get(r,0)}ms/{region_chars.get(r,0)}ch"
+                for r in regions
+            )
+            group_log = "  ".join(
+                f"[{g}]={group_results[g]['chars']}ch" for g in groups
+            )
+            print(f"⏱  OCR preprocess={preprocess_ms}ms vision={vision_ms}ms total={total_ms}ms | {region_log} | groups: {group_log}")
+
+            # ── Pick winner ───────────────────────────────────────────────────
+            active = {g: r for g, r in group_results.items() if r["chars"] >= MIN_GROUP_CHARS}
+
+            if not active:
+                state["active_group"] = None
+                last_winner = None
+                for gs in group_state.values():
+                    gs["text"]         = ""
+                    gs["stable_count"] = 0
+                state["status"] = "Listening..."
+                continue
+
+            winner = max(active, key=lambda g: active[g]["chars"])
+            state["active_group"] = winner
+            jp = active[winner]["text"]
+
+            # Reset other groups if winner changed
+            if winner != last_winner:
+                for gname, gs in group_state.items():
+                    if gname != winner:
+                        gs["text"]         = ""
+                        gs["stable_count"] = 0
+                if last_winner is not None:
+                    print(f"🔄  Winner changed: {last_winner} → {winner}")
+                last_winner = winner
+
+            gs = group_state[winner]
+
+            # Log dominant region OCR output every frame (after winner is known)
+            winner_regions = groups.get(winner, [winner])
+            region_ocr_log = "  ".join(
+                f"{r}={region_text.get(r, '').strip()!r}"
+                for r in winner_regions if region_chars.get(r, 0) >= MIN_REGION_CHARS
+            ) or "(no text)"
+            print(f"🔍  [{winner}] {region_ocr_log}")
 
             # Gate 1: empty
             if not jp or jp.upper() == "NONE":
-                text_stable["text"] = ""
-                text_stable["stable_count"] = 0
+                gs["text"]         = ""
+                gs["stable_count"] = 0
                 state["status"] = "Listening..."
                 continue
 
             # Gate 2: too short
-            if len(jp.replace(" ", "")) < MIN_JAPANESE_CHARS:
-                text_stable["text"] = ""
-                text_stable["stable_count"] = 0
+            if len(jp.replace(" ", "")) < MIN_GROUP_CHARS:
+                gs["text"]         = ""
+                gs["stable_count"] = 0
                 state["status"] = "Listening..."
                 continue
 
-            # Gate 3: stability — text must be identical for STABLE_THRESHOLD frames
-            if normalize_for_dedup(jp) == normalize_for_dedup(text_stable["text"]):
-                text_stable["stable_count"] += 1
+            # Gate 3: stability — max_diff=1 so a single character variance
+            # (dropped stroke, misread glyph) doesn't reset the counter, but
+            # genuinely new text always resets regardless of length because
+            # fuzzy_same early-exits when len difference exceeds max_diff.
+            # Gate 4 uses the looser default tolerance to suppress LLM re-fires
+            # on minor noise once the text is already published.
+            fuzzy_gate3 = min(2, len(jp) // 10)
+            if fuzzy_same(jp, gs["text"], max_diff=fuzzy_gate3):
+                gs["stable_count"] += 1
             else:
-                text_stable["text"] = jp
-                text_stable["stable_count"] = 1
-                state["status"] = "Dialogue typing..."
+                gs["text"]         = jp
+                gs["stable_count"] = 1
+                state["status"]    = "Dialogue typing..."
                 continue
 
-            if text_stable["stable_count"] < STABLE_THRESHOLD:
-                state["status"] = f"Reading... ({text_stable['stable_count']}/{STABLE_THRESHOLD})"
+            if gs["stable_count"] < STABLE_THRESHOLD:
+                state["status"] = f"Reading... ({gs['stable_count']}/{STABLE_THRESHOLD})"
                 continue
-
-            # Gate 4: only publish if different from last published (fuzzy tolerance)
+            
+            print(f"OFFICIALLY STABILIZED")
+            # Gate 4: only publish if different from last published
             with latest_stable_lock:
                 last = latest_stable_jp["text"]
             if not fuzzy_same(jp, last):
                 with latest_stable_lock:
-                    latest_stable_jp["text"]   = jp
-                    latest_stable_jp["ocr_ms"] = ocr_ms
-                # Annotate for highlights — shared by both panels
+                    latest_stable_jp["text"]          = jp
+                    latest_stable_jp["ocr_ms"]        = total_ms
+                    latest_stable_jp["group"]         = winner
+                    latest_stable_jp["preprocess_ms"] = preprocess_ms
+                    latest_stable_jp["region_ocr_ms"] = dict(region_ocr_ms)
                 vocab = load_vocab()
-                state["japanese"] = jp
+                state["japanese"]  = jp
                 state["annotated"] = annotate_japanese(jp, vocab)
-                # Save raw crop + OCR text for training data
+                for gname in list(state["group_translations"].keys()):
+                    if gname != winner:
+                        state["group_translations"][gname] = {}
                 if OCR_TRAINING_ENABLED:
+                    raw_crop = crop_region(frame, regions[groups[winner][0]])
                     threading.Thread(
                         target=_save_ocr_training_sample,
-                        args=(crop.copy(), jp),
+                        args=(raw_crop, jp),
                         daemon=True,
                     ).start()
 
@@ -1257,8 +1525,11 @@ def translate_loop():
 
     while True:
         with latest_stable_lock:
-            jp     = latest_stable_jp["text"]
-            ocr_ms = latest_stable_jp["ocr_ms"]
+            jp             = latest_stable_jp["text"]
+            ocr_ms         = latest_stable_jp["ocr_ms"]
+            group          = latest_stable_jp["group"]
+            preprocess_ms  = latest_stable_jp["preprocess_ms"]
+            region_ocr_ms  = dict(latest_stable_jp["region_ocr_ms"])
 
         if not jp or jp == last_translated:
             time.sleep(0.1)
@@ -1271,6 +1542,22 @@ def translate_loop():
             state["translate_romaji"]      = romaji
             state["translate_translation"] = translation
             state["translation_timing"]    = {"llm_ms": llm_ms, "total_ms": ocr_ms + llm_ms}
+            # Write metrics row only when a real LLM call fired (cache hits have llm_ms == 0)
+            if METRICS_ENABLED and llm_ms > 0:
+                threading.Thread(
+                    target=_write_metrics_row,
+                    args=(jp, preprocess_ms, region_ocr_ms, ocr_ms, llm_ms),
+                    daemon=True,
+                ).start()
+            # Write to per-group translation store so each group's window updates independently
+            if group:
+                vocab = load_vocab()
+                state["group_translations"][group] = {
+                    "japanese":    jp,
+                    "romaji":      romaji,
+                    "translation": translation,
+                    "annotated":   annotate_japanese(jp, vocab),
+                }
             history_entry = {
                 "time":        time.strftime("%H:%M:%S"),
                 "japanese":    jp,
@@ -1279,7 +1566,7 @@ def translate_loop():
             }
             push_history(history_entry)
             state["status"] = "Live"
-            print(f"🔤  {jp} → {translation}")
+            print(f"🔤  [{group}] {jp} → {translation}")
         except Exception as e:
             print(f"❌  Translate error: {e}")
             state["error"] = str(e)
@@ -1371,7 +1658,7 @@ def learn_loop():
 
 # ── Main pipeline entrypoint ────────────────────────────────────────────────────
 
-def translation_loop(cap, bounds):
+def translation_loop(cap, regions, groups):
     """Pipeline entry point called once per session.
     Initialises vocab stats, then spawns three daemon threads:
       ocr_loop       — captures frames and runs stability gates
@@ -1390,29 +1677,28 @@ def translation_loop(cap, bounds):
         "new_today":   vocab["stats"].get("new_today", 0),
     }
 
-    threading.Thread(target=ocr_loop,       args=(bounds,), daemon=True).start()
+    threading.Thread(target=ocr_loop,       args=(regions, groups), daemon=True).start()
     threading.Thread(target=translate_loop, daemon=True).start()
     threading.Thread(target=learn_loop,     daemon=True).start()
 
-    # Keep main thread alive
     while True:
         time.sleep(1)
 
-# ── Capture loop ───────────────────────────────────────────────────────────────
 
 def capture_loop():
     """Top-level loop: loads bounds, opens the video source, then hands off
     to translation_loop. Sets state["error"] and returns early if the
     camera cannot be opened."""
-    bounds = load_bounds()
-    state["bounds"] = bounds
+    regions, groups = load_bounds()
+    state["bounds"]       = regions
+    state["groups_list"]  = list(groups.keys())  # ordered group names for UI
     cap = cv2.VideoCapture(VIDEO_SOURCE)
     if not cap.isOpened():
         state["error"] = "Cannot connect to camera"
         print("❌  Cannot connect. Check VIDEO_SOURCE.")
         return
     print("✅  Connected.")
-    translation_loop(cap, bounds)
+    translation_loop(cap, regions, groups)
     cap.release()
 
 # ── Flask ──────────────────────────────────────────────────────────────────────
@@ -1616,6 +1902,120 @@ HTML = """<!DOCTYPE html>
   .preview-float.visible { display: block; }
   .preview-float img { width: 100%; display: block; }
 
+  /* Per-group preview panels */
+  .group-preview-panel {
+    width: 260px;
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    background: var(--surface);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .group-preview-panel.locked {
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(142,196,154,0.3);
+  }
+  .group-preview-panel.above-threshold {
+    border-color: var(--yellow);
+  }
+  .group-preview-header {
+    padding: 5px 8px;
+    display: flex; align-items: center; gap: 6px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .group-preview-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--dim); flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .group-preview-dot.locked    { background: var(--green); }
+  .group-preview-dot.threshold { background: var(--yellow); }
+  .group-preview-name {
+    font-family: var(--mono); font-size: 11px; color: var(--subtext);
+    letter-spacing: 0.08em; flex: 1;
+  }
+  .group-preview-score {
+    font-family: var(--mono); font-size: 10px; color: var(--dim);
+  }
+  .group-preview-panel img { width: 100%; display: block; }
+
+  /* Score bar row below preview image */
+  .score-bar-wrap {
+    padding: 4px 8px 5px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .score-bar-track {
+    height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--dim);
+    transition: width 0.3s ease, background 0.2s;
+  }
+  .score-bar-fill.threshold { background: var(--yellow); }
+  .score-bar-fill.locked    { background: var(--green); }
+
+  /* Per-group translation card */
+  .group-trans-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 22px 28px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    opacity: 0.45;
+  }
+  .group-trans-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(123,175,212,0.15);
+    opacity: 1;
+  }
+  .group-trans-card.locked {
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(142,196,154,0.15);
+    opacity: 1;
+  }
+  .group-card-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .group-card-title {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--subtext);
+  }
+  .group-lock-badge {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 4px;
+    background: rgba(142,196,154,0.15); color: var(--green);
+    border: 1px solid rgba(142,196,154,0.3);
+    display: none;
+  }
+  .group-lock-badge.visible { display: inline-block; }
+  .group-score-inline {
+    font-family: 'Nunito', sans-serif;
+    font-size: 28px;
+    font-weight: 300;
+    color: var(--text);
+    margin-left: auto;
+    line-height: 1;
+  }
+
+  /* Per-region preview sub-panels inside a group preview panel */
+  .region-preview-sub {
+    border-top: 1px solid var(--border);
+  }
+  .region-preview-header {
+    padding: 4px 8px;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg);
+  }
+  .region-preview-name {
+    font-family: var(--mono); font-size: 10px; color: var(--dim);
+    letter-spacing: 0.06em; flex: 1;
+  }
+  .region-preview-score {
+    font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 300;
+    color: var(--subtext);
+  }
+  .region-preview-sub img { width: 100%; display: block; }
+
   /* Quiz overlay — fullscreen, quittable */
   .quiz-overlay {
     display: none; position: fixed; inset: 0; z-index: 200;
@@ -1743,6 +2143,11 @@ HTML = """<!DOCTYPE html>
   <div class="sidebar-section-label">Session</div>
   <div class="sidebar-metrics">
     <div class="metric-row">
+      <span class="metric-label">OCR loop</span>
+      <span class="metric-value green" id="ocr-total-ms">—</span>
+    </div>
+    <div id="ocr-region-rows"></div>
+    <div class="metric-row">
       <span class="metric-label">Translate calls</span>
       <span class="metric-value" id="translate-calls">0</span>
     </div>
@@ -1781,23 +2186,13 @@ HTML = """<!DOCTYPE html>
   </div>
 </div>
 
-<main>
-  <!-- Translation card -->
-  <div class="trans-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="card-label" style="margin-bottom:0">Japanese</div>
-      <button id="live-btn" onclick="returnToLive()" style="display:none;font-family:var(--mono);font-size:9px;color:var(--subtext);background:none;border:1px solid var(--border);border-radius:4px;padding:3px 8px;cursor:pointer;letter-spacing:0.08em">↩ back to live</button>
-    </div>
-    <div class="japanese-wrap placeholder" id="japanese-wrap">Waiting for dialogue...</div>
-    <div class="romaji" id="romaji"></div>
-    <hr class="divider">
-    <div class="card-label">English</div>
-    <div class="english placeholder-text" id="english">Translation will appear here</div>
-    <div class="legend">
-      <div class="legend-item"><div class="legend-dot dot-new"></div>New</div>
-      <div class="legend-item"><div class="legend-dot dot-learning"></div>Learning (1–4×)</div>
-      <div class="legend-item"><div class="legend-dot dot-familiar"></div>Familiar (5+×)</div>
-    </div>
+<main id="translate-main">
+  <!-- Per-group translation cards — built dynamically by JS after /groups fetch -->
+  <div style="display:flex;justify-content:flex-end;margin-bottom:4px;min-height:22px;">
+    <button id="live-btn" onclick="returnToLive()" style="display:none;font-family:var(--mono);font-size:9px;color:var(--subtext);background:none;border:1px solid var(--border);border-radius:4px;padding:3px 8px;cursor:pointer;letter-spacing:0.08em">↩ back to live</button>
+  </div>
+  <div id="group-cards-container" style="display:flex;flex-direction:column;gap:16px;">
+    <div style="font-family:var(--mono);font-size:12px;color:var(--dim);padding:20px 0;">Loading groups...</div>
   </div>
 
   <!-- Acknowledge bar — visible in LEARN mode when a lesson is pending -->
@@ -1832,13 +2227,14 @@ HTML = """<!DOCTYPE html>
 
   </div>
 
-
 </main>
 
-<!-- Floating preview — fixed bottom-right, only shown in TRANSLATE mode -->
-<div class="preview-float" id="preview-float">
-  <img src="/preview" alt="Live crop">
-</div>
+<!-- Per-group preview panels — fixed bottom-right stack, only shown in TRANSLATE mode -->
+<div id="group-previews-container" style="
+  position:fixed; bottom:16px; right:16px; z-index:50;
+  display:none;
+  flex-direction:column; gap:8px; align-items:flex-end;
+"></div>
 
 <script>
 const QUIZ_EVERY   = {{ quiz_every }};
@@ -1851,8 +2247,132 @@ function setMode(mode) {
   document.getElementById('btn-translate').classList.toggle('active', mode === 'TRANSLATE');
   document.getElementById('btn-learn').classList.toggle('active', mode === 'LEARN');
   document.getElementById('lesson-panel').style.display = mode === 'LEARN' ? 'flex' : 'none';
-  document.getElementById('preview-float').classList.toggle('visible', mode === 'TRANSLATE');
+  const previewsContainer = document.getElementById('group-previews-container');
+  if (previewsContainer) previewsContainer.style.display = mode === 'TRANSLATE' ? 'flex' : 'none';
   fetch('/set_mode', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({mode})});
+}
+
+// ── Group card + preview builder ──────────────────────────────────────────────
+let _groups    = [];   // ordered group names
+let _groupsMap = {};   // {group: [region_names]}
+
+function _groupCardId(g)    { return `group-card-${g}`; }
+function _groupJpId(g)      { return `group-jp-${g}`; }
+function _groupRomajiId(g)  { return `group-romaji-${g}`; }
+function _groupEnId(g)      { return `group-en-${g}`; }
+function _groupBadgeId(g)   { return `group-badge-${g}`; }
+function _groupScoreId(g)   { return `group-score-${g}`; }
+function _groupPreviewId(g) { return `group-preview-${g}`; }
+function _groupBarId(g)     { return `group-bar-${g}`; }
+
+function buildGroupCards(groups, groupsMap) {
+  _groups    = groups;
+  _groupsMap = groupsMap || {};
+  const container = document.getElementById('group-cards-container');
+  container.innerHTML = groups.map(g => `
+    <div class="group-trans-card" id="${_groupCardId(g)}">
+      <div class="group-card-header">
+        <div class="group-card-title">${g}</div>
+        <span class="group-lock-badge" id="${_groupBadgeId(g)}">● active</span>
+        <span class="group-score-inline" id="${_groupScoreId(g)}"></span>
+      </div>
+      <div class="japanese-wrap placeholder" id="${_groupJpId(g)}">Waiting...</div>
+      <div class="romaji" id="${_groupRomajiId(g)}" style="font-size:28px;margin-bottom:12px;"></div>
+      <hr class="divider">
+      <div class="card-label">English</div>
+      <div class="english placeholder-text" id="${_groupEnId(g)}" style="font-size:32px;">—</div>
+      <div class="legend" style="margin-top:10px;">
+        <div class="legend-item"><div class="legend-dot dot-new"></div>New</div>
+        <div class="legend-item"><div class="legend-dot dot-learning"></div>Learning</div>
+        <div class="legend-item"><div class="legend-dot dot-familiar"></div>Familiar</div>
+      </div>
+    </div>`).join('');
+
+  // Build preview panels — one group panel per group, with region sub-panels inside
+  const previewsContainer = document.getElementById('group-previews-container');
+  previewsContainer.innerHTML = groups.map(g => {
+    const regionNames = _groupsMap[g] || [g];
+    const regionSubs  = regionNames.map(r => `
+      <div class="region-preview-sub">
+        <div class="region-preview-header">
+          <span class="region-preview-name">${r}</span>
+          <span class="region-preview-score" id="rscore-${r}">0</span>
+        </div>
+        <img src="/preview/region/${encodeURIComponent(r)}" alt="${r}">
+      </div>`).join('');
+    return `
+    <div class="group-preview-panel" id="${_groupPreviewId(g)}">
+      <div class="group-preview-header">
+        <span class="group-preview-dot" id="dot-${g}"></span>
+        <span class="group-preview-name">${g}</span>
+        <span class="group-preview-score" id="pscore-${g}">0 chars</span>
+      </div>
+      ${regionSubs}
+    </div>`;
+  }).join('');
+
+  if (currentMode === 'TRANSLATE') {
+    previewsContainer.style.display = 'flex';
+  }
+}
+
+function updateGroupCards(d) {
+  if (!_groups.length) return;
+  const groupScores  = d.group_scores   || {};
+  const regionScores = d.region_scores  || {};
+  const trans        = d.group_translations || {};
+  const locked       = d.active_group   || null;
+  // Score bar max: scale to 30 chars as a reasonable ceiling
+  const barMax = 30;
+
+  _groups.forEach(g => {
+    const score    = groupScores[g] || 0;
+    const isActive = g === locked;
+    const gt       = trans[g] || {};
+
+    // ── Translation card ──────────────────────────────────────────────────
+    const card = document.getElementById(_groupCardId(g));
+    if (card) card.className = 'group-trans-card' + (isActive ? ' locked' : '');
+
+    const badge = document.getElementById(_groupBadgeId(g));
+    if (badge) badge.className = 'group-lock-badge' + (isActive ? ' visible' : '');
+
+    const scoreEl = document.getElementById(_groupScoreId(g));
+    if (scoreEl) scoreEl.textContent = score > 0 ? `${score} chars` : '';
+
+    const jpEl = document.getElementById(_groupJpId(g));
+    if (jpEl) {
+      if (gt.annotated) { jpEl.innerHTML = renderJapanese(gt.annotated); jpEl.className = 'japanese-wrap'; }
+      else if (gt.japanese) { jpEl.textContent = gt.japanese; jpEl.className = 'japanese-wrap'; }
+      else { jpEl.textContent = 'Waiting...'; jpEl.className = 'japanese-wrap placeholder'; }
+    }
+    const romEl = document.getElementById(_groupRomajiId(g));
+    if (romEl) romEl.textContent = gt.romaji || '';
+
+    const enEl = document.getElementById(_groupEnId(g));
+    if (enEl) {
+      if (gt.translation) { enEl.textContent = gt.translation; enEl.className = 'english'; enEl.style.fontSize = '32px'; }
+      else { enEl.textContent = '—'; enEl.className = 'english placeholder-text'; enEl.style.fontSize = '32px'; }
+    }
+
+    // ── Group preview panel ───────────────────────────────────────────────
+    const panel = document.getElementById(_groupPreviewId(g));
+    if (panel) panel.className = 'group-preview-panel' + (isActive ? ' locked' : score > 0 ? ' above-threshold' : '');
+
+    const dot = document.getElementById(`dot-${g}`);
+    if (dot) dot.className = 'group-preview-dot' + (isActive ? ' locked' : score > 0 ? ' threshold' : '');
+
+    const pScore = document.getElementById(`pscore-${g}`);
+    if (pScore) pScore.textContent = `${score} chars`;
+
+    // ── Per-region scores ─────────────────────────────────────────────────
+    const regionNames = _groupsMap[g] || [g];
+    regionNames.forEach(r => {
+      const rc = regionScores[r] || 0;
+      const rsEl = document.getElementById(`rscore-${r}`);
+      if (rsEl) rsEl.textContent = rc > 0 ? `${rc}` : '0';
+    });
+  });
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -1886,32 +2406,34 @@ function _liveBtnLabel() {
 function showSidebarLesson(idx) {
   activeSidebarIdx = idx;
   const liveBtn = document.getElementById('live-btn');
-  liveBtn.style.display = 'inline-block';
-  liveBtn.textContent = _liveBtnLabel();
-  // Update active state
+  if (liveBtn) { liveBtn.style.display = 'inline-block'; liveBtn.textContent = _liveBtnLabel(); }
   document.querySelectorAll('.sidebar-item').forEach((el, i) => {
     el.classList.toggle('active', i === idx);
   });
   const l = sidebarLessons[idx];
   if (!l) return;
 
-  // Populate trans-card with this lesson's data
-  const jpWrap = document.getElementById('japanese-wrap');
-  jpWrap.textContent = l.japanese;
-  jpWrap.className   = 'japanese-wrap';
-
-  document.getElementById('romaji').textContent = l.romaji || '';
-  const enEl = document.getElementById('english');
-  enEl.textContent = l.translation || '';
-  enEl.className   = 'english';
-
-  // Hide ack bar while browsing history — poll restores it on return to live
-  document.getElementById('ack-bar').classList.remove('visible');
-
-  // If in LEARN mode, also populate lesson panel
-  if (currentMode === 'LEARN') {
-    renderLessonDetail(l);
+  // In TRANSLATE mode: populate the first group card temporarily as a review view
+  // In LEARN mode: populate the learn panel elements
+  if (currentMode === 'TRANSLATE' && _groups.length) {
+    const g = _groups[0];
+    const jpEl = document.getElementById(_groupJpId(g));
+    if (jpEl) { jpEl.textContent = l.japanese; jpEl.className = 'japanese-wrap'; }
+    const romEl = document.getElementById(_groupRomajiId(g));
+    if (romEl) romEl.textContent = l.romaji || '';
+    const enEl = document.getElementById(_groupEnId(g));
+    if (enEl) { enEl.textContent = l.translation || ''; enEl.className = 'english'; enEl.style.fontSize = '32px'; }
+  } else {
+    const jpWrap = document.getElementById('japanese-wrap');
+    if (jpWrap) { jpWrap.textContent = l.japanese; jpWrap.className = 'japanese-wrap'; }
+    const romEl = document.getElementById('romaji');
+    if (romEl) romEl.textContent = l.romaji || '';
+    const enEl = document.getElementById('english');
+    if (enEl) { enEl.textContent = l.translation || ''; enEl.className = 'english'; }
   }
+
+  document.getElementById('ack-bar').classList.remove('visible');
+  if (currentMode === 'LEARN') renderLessonDetail(l);
 }
 
 function renderLessonDetail(l) {
@@ -2106,65 +2628,55 @@ async function poll() {
       document.getElementById('stat-new').textContent   = d.vocab_stats.new_today   || 0;
     }
 
-    // Only update main display if user isn't reviewing a sidebar lesson
-    if (activeSidebarIdx === null) {
-      const jpWrap = document.getElementById('japanese-wrap');
+    // Per-group translation cards + preview panels (TRANSLATE mode)
+    if (currentMode === 'TRANSLATE') {
+      updateGroupCards(d);
+    }
 
-      if (currentMode === 'TRANSLATE') {
-        // Translate tab: always shows live OCR text with highlights
-        if (d.japanese && d.annotated) {
-          jpWrap.innerHTML = renderJapanese(d.annotated);
-          jpWrap.className = 'japanese-wrap';
-        } else if (d.japanese) {
-          jpWrap.textContent = d.japanese;
-          jpWrap.className = 'japanese-wrap';
-        } else {
-          jpWrap.textContent = 'Waiting for dialogue...';
-          jpWrap.className = 'japanese-wrap placeholder';
-        }
-        document.getElementById('romaji').textContent = d.translate_romaji || '';
-        const enEl = document.getElementById('english');
-        if (d.translate_translation) {
-          enEl.textContent = d.translate_translation;
-          enEl.className = 'english';
-        } else {
-          enEl.textContent = 'Translation will appear here';
-          enEl.className = 'english placeholder-text';
-        }
-      } else {
-        // Learn tab: shows lesson_japanese (frozen to lesson text until acknowledged)
-        const lessonJp = d.lesson_japanese || '';
-        if (lessonJp) {
-          jpWrap.textContent = lessonJp;
-          jpWrap.className = 'japanese-wrap';
-        } else {
-          jpWrap.textContent = 'Waiting for lesson...';
-          jpWrap.className = 'japanese-wrap placeholder';
+    // Only update lesson panel if user isn't reviewing a sidebar lesson
+    if (activeSidebarIdx === null) {
+      if (currentMode === 'LEARN') {
+        const jpWrap = document.getElementById('japanese-wrap');
+        if (jpWrap) {
+          const lessonJp = d.lesson_japanese || '';
+          if (lessonJp) { jpWrap.textContent = lessonJp; jpWrap.className = 'japanese-wrap'; }
+          else { jpWrap.textContent = 'Waiting for lesson...'; jpWrap.className = 'japanese-wrap placeholder'; }
         }
         const learnRomaji = d.lesson ? d.lesson.romaji : '';
         const learnTrans  = d.lesson ? d.lesson.translation : '';
-        document.getElementById('romaji').textContent = learnRomaji || '';
+        const romajiEl = document.getElementById('romaji');
+        if (romajiEl) romajiEl.textContent = learnRomaji || '';
         const enEl = document.getElementById('english');
-        if (learnTrans) {
-          enEl.textContent = learnTrans;
-          enEl.className = 'english';
-        } else {
-          enEl.textContent = 'Lesson will appear here';
-          enEl.className = 'english placeholder-text';
+        if (enEl) {
+          if (learnTrans) { enEl.textContent = learnTrans; enEl.className = 'english'; }
+          else { enEl.textContent = 'Lesson will appear here'; enEl.className = 'english placeholder-text'; }
         }
-      }
-
-      // Lesson panel (learn tab only)
-      if (d.lesson && currentMode === 'LEARN') {
-        renderLessonDetail(d.lesson);
-      } else if (currentMode === 'LEARN') {
-        document.getElementById('breakdown-tbody').innerHTML = '';
-        document.getElementById('grammar-card').style.display = 'none';
-        document.getElementById('kanji-card').style.display   = 'none';
+        if (d.lesson) renderLessonDetail(d.lesson);
+        else {
+          document.getElementById('breakdown-tbody').innerHTML = '';
+          document.getElementById('grammar-card').style.display = 'none';
+          document.getElementById('kanji-card').style.display   = 'none';
+        }
       }
     }
 
     // Metrics
+    // Metrics
+    const ocr = d.ocr_timing || {};
+    const ocrTotalEl = document.getElementById('ocr-total-ms');
+    if (ocrTotalEl) ocrTotalEl.textContent = ocr.ocr_ms ? ocr.ocr_ms + 'ms' : '—';
+
+    // Per-region OCR timing — build rows dynamically on first non-empty read
+    const regionRows = document.getElementById('ocr-region-rows');
+    if (regionRows && ocr.region_ocr_ms) {
+      regionRows.innerHTML = Object.entries(ocr.region_ocr_ms).map(([r, ms]) =>
+        `<div class="metric-row metric-sub-row">
+           <span class="metric-label">↳ ${r}</span>
+           <span class="metric-value green">${ms}ms</span>
+         </div>`
+      ).join('');
+    }
+
     document.getElementById('translate-calls').textContent  = d.translate_calls || 0;
     document.getElementById('translate-ocr-ms').textContent = d.translate_ocr_ms ? d.translate_ocr_ms + 'ms' : '—';
     document.getElementById('translate-llm-ms').textContent = d.translate_cached ? '⚡ cached' : (d.translate_llm_ms ? d.translate_llm_ms + 'ms' : '—');
@@ -2204,11 +2716,28 @@ async function poll() {
   setTimeout(poll, 500);
 }
 
-// Initial sidebar load
-// Show preview on initial load (default mode is TRANSLATE)
-document.getElementById('preview-float').classList.add('visible');
-loadSidebar();
-poll();
+// Initial load — fetch groups first, then build cards, then start polling
+async function init() {
+  try {
+    const res  = await fetch('/groups');
+    const data = await res.json();
+    if (data.groups && data.groups.length) {
+      buildGroupCards(data.groups, data.groups_map || {});
+    }
+  } catch(e) {
+    console.warn('Could not fetch groups — retrying in 2s');
+    setTimeout(async () => {
+      try {
+        const res  = await fetch('/groups');
+        const data = await res.json();
+        if (data.groups && data.groups.length) buildGroupCards(data.groups, data.groups_map || {});
+      } catch(e) {}
+    }, 2000);
+  }
+  loadSidebar();
+  poll();
+}
+init();
 </script>
 </body>
 </html>"""
@@ -2355,6 +2884,31 @@ def quiz_quit():
 def preview():
     """Stream the preprocessed crop as a multipart/x-mixed-replace MJPEG response."""
     return Response(mjpeg_generator(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/preview/<group_name>')
+def preview_group(group_name):
+    """Stream the preprocessed crop for a specific group."""
+    return Response(group_mjpeg_generator(group_name), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/preview/region/<region_name>')
+def preview_region(region_name):
+    """Stream the preprocessed crop for a specific region."""
+    return Response(region_mjpeg_generator(region_name), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/groups')
+def get_groups():
+    """Return ordered group names and their member regions for the UI."""
+    groups_list = state.get("groups_list") or []
+    bounds      = state.get("bounds") or {}
+    # Build {group: [region_names]} mapping
+    groups_map = {}
+    for rname, b in bounds.items():
+        gname = b.get("group") or rname
+        groups_map.setdefault(gname, []).append(rname)
+    return jsonify({
+        "groups":     groups_list,
+        "groups_map": {g: groups_map.get(g, [g]) for g in groups_list},
+    })
 
 def unload_model():
     """Ask Ollama to evict the translation model from RAM (keep_alive=0).

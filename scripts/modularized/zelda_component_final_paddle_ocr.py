@@ -1,12 +1,11 @@
 """
-zelda_translator_paddle_ocr_furigana_box.py
-============================================
+zelda_translator_paddle_ocr_base_postprocessing.py
+===================================================
 Variant: PaddleOCR v5 mobile  |  Postprocessing: exact-string fixes + noise filter
-Preprocessing: CC furigana removal (PIL, before upscaling)
+Preprocessing: row-density furigana suppression
 """
 import os
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
-from PIL import Image
 from paddleocr import PaddleOCR
 import cv2
 import numpy as np
@@ -29,6 +28,8 @@ _paddle_ocr = PaddleOCR(
     device="cpu",
 )
 # PaddleOCR's predict() is not thread-safe on a shared model instance.
+# zelda_core runs OCR concurrently across regions — this lock serialises
+# all calls into _paddle_ocr so only one runs at a time.
 _paddle_lock = threading.Lock()
 # ── Postprocessing fixes ─────────────────────────────────────────────────────
 _EXACT_FIXES = {
@@ -137,51 +138,10 @@ def paddle_ocr(frame):
 
 do_ocr = paddle_ocr
 
-def remove_furigana_components(pil_image):
-    """CC-based furigana removal with isolation guard.
-    Removes small glyphs that are isolated above/below main-text lines (furigana)
-    while preserving small kana (ゃ/っ/ょ) that sit on the same line as large chars.
-    Runs on the raw binary image BEFORE upscaling for accurate component sizing."""
-    arr     = np.array(pil_image.convert("L"))
-    dark_bg = np.mean(arr) < 127
-    binary  = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
-    if num_labels <= 1:
-        return pil_image
-    heights = [stats[i, cv2.CC_STAT_HEIGHT] for i in range(1, num_labels)]
-    if not heights:
-        return pil_image
-    median_h           = float(np.median(heights))
-    furigana_threshold = median_h * 0.55
-    centres = [
-        stats[i, cv2.CC_STAT_TOP] + stats[i, cv2.CC_STAT_HEIGHT] / 2.0
-        for i in range(1, num_labels)
-    ]
-    large_indices = [
-        idx for idx in range(len(centres))
-        if stats[idx + 1, cv2.CC_STAT_HEIGHT] >= furigana_threshold
-    ]
-    out      = arr.copy()
-    bg_value = 255 if not dark_bg else 0
-    for i in range(1, num_labels):
-        h = stats[i, cv2.CC_STAT_HEIGHT]
-        w = stats[i, cv2.CC_STAT_WIDTH]
-        if h >= furigana_threshold or w >= median_h * 2:
-            continue
-        cy = centres[i - 1]
-        has_large_neighbour = any(
-            abs(centres[j] - cy) < median_h * 1.5
-            for j in large_indices
-        )
-        if not has_large_neighbour:
-            out[labels == i] = bg_value
-    return Image.fromarray(out)
-
 def preprocess_crop(crop):
-    """Zeldacc preset preprocessing.
-    Pipeline: threshold-160 → CC furigana removal at original res → 2x Lanczos → black border.
-    CC removal runs before upscaling so component sizes are accurate (no Lanczos halo artifacts).
-    Matches the 'zeldacc' preset in japanese_ocr_compare.py exactly."""
+    """Zelda preset preprocessing.
+    Pipeline: threshold-160 → row-density furigana suppression → 2x Lanczos → black border.
+    Matches the 'zelda' preset in japanese_ocr_compare.py exactly."""
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     _, mask = cv2.threshold(gray, 160, 255, cv2.THRESH_BINARY)
     if mask.max() == 0:
@@ -192,10 +152,16 @@ def preprocess_crop(crop):
         return np.zeros((h * 2 + 40, w * 2 + 40, 3), dtype=np.uint8)
     result = np.zeros_like(crop)
     result[mask == 255] = (255, 255, 255)
-    # CC furigana removal at original resolution — before upscaling
-    pil_pre   = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
-    pil_clean = remove_furigana_components(pil_pre)
-    result    = cv2.cvtColor(np.array(pil_clean), cv2.COLOR_RGB2BGR)
+    # Row-density furigana suppression — rows with fewer bright pixels than
+    # 42% of the median non-zero row density are blanked out.
+    row_density = mask.sum(axis=1) / 255.0
+    non_zero_densities = row_density[row_density > 0]
+    if len(non_zero_densities) > 0:
+        median_density     = float(np.median(non_zero_densities))
+        furigana_threshold = median_density * 0.42
+        for i, d in enumerate(row_density):
+            if 0 < d < furigana_threshold:
+                result[i, :] = 0
     h, w   = result.shape[:2]
     result = cv2.resize(result, (w * 2, h * 2), interpolation=cv2.INTER_LANCZOS4)
     result = cv2.copyMakeBorder(result, 20, 20, 20, 20, cv2.BORDER_CONSTANT, value=(0, 0, 0))

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zelda OCR Variant Analysis</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; margin: 40px; color: #222; background: #fafafa; max-width: 1200px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  h2 { font-size: 16px; margin-top: 36px; margin-bottom: 10px; border-bottom: 2px solid #2E75B6; padding-bottom: 4px; color: #2E75B6; }
+  h3 { font-size: 14px; margin-top: 22px; margin-bottom: 6px; color: #333; }
+  p  { line-height: 1.6; margin: 6px 0 10px; }
+  .subtitle { color: #666; margin-bottom: 28px; font-size: 12px; }
+
+  /* ── Metric explanation box ── */
+  .metric-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin: 14px 0 24px; }
+  .metric-card { background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
+  .metric-card .mc-name { font-weight: bold; font-size: 12px; color: #2E75B6; margin-bottom: 4px; }
+  .metric-card .mc-desc { font-size: 11px; color: #555; line-height: 1.5; }
+  .metric-card .mc-formula { font-size: 10px; color: #888; margin-top: 4px; font-family: monospace; }
+
+  /* ── Summary cards ── */
+  .summary-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; margin-bottom: 24px; }
+  .summary-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 14px; text-align: center; }
+  .summary-card .rank-num { font-size: 26px; font-weight: bold; }
+  .summary-card .run-name { font-size: 11px; color: #555; margin: 4px 0 8px; min-height: 28px; }
+  .summary-card .big-score { font-size: 24px; font-weight: bold; }
+  .summary-card .sub-scores { font-size: 11px; color: #666; margin-top: 6px; line-height: 1.8; }
+  .card-1 { border-top: 4px solid #1a7a1a; } .card-2 { border-top: 4px solid #2E75B6; }
+  .card-3 { border-top: 4px solid #7030A0; } .card-4 { border-top: 4px solid #C55A11; }
+  .card-5 { border-top: 4px solid #843C0C; }
+
+  /* ── Main ranking table ── */
+  .rank-table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+  .rank-table th { background: #2E75B6; color: white; padding: 8px 10px; text-align: left; font-size: 11px; white-space: nowrap; }
+  .rank-table td { padding: 7px 10px; border-bottom: 1px solid #ddd; font-size: 12px; vertical-align: middle; }
+  .rank-table tr:nth-child(even) td { background: #f4f7fc; }
+  .bar-wrap { background: #e0e0e0; border-radius: 3px; height: 10px; width: 120px; display: inline-block; vertical-align: middle; }
+  .bar { height: 10px; border-radius: 3px; display: inline-block; }
+  .bold { font-weight: bold; }
+
+  /* ── Scene blocks ── */
+  .scene-block { margin-bottom: 20px; background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+  .scene-header { background: #f0f4fa; padding: 8px 14px; border-bottom: 1px solid #ddd; }
+  .scene-truth-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .scene-truth { font-weight: bold; font-size: 13px; color: #222; margin-top: 2px; }
+  .scene-type-tag { display: inline-block; padding: 1px 7px; border-radius: 8px; font-size: 10px; font-weight: bold; color: white; margin-left: 8px; vertical-align: middle; }
+  .tag-dialogue { background: #2E75B6; } .tag-item { background: #7030A0; }
+
+  .scene-table { border-collapse: collapse; width: 100%; }
+  .scene-table th { background: #e8eef6; color: #333; padding: 5px 10px; font-size: 10px; text-align: center; border-bottom: 1px solid #ccc; white-space: nowrap; }
+  .scene-table th.left { text-align: left; }
+  .scene-table td { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 12px; vertical-align: top; }
+  .scene-table tr:last-child td { border-bottom: none; }
+  .best-row td { background: #edfaed; }
+  .center { text-align: center; }
+
+  .acc { font-weight: bold; white-space: nowrap; }
+  .acc-100{color:#1a7a1a} .acc-90{color:#3a9a3a} .acc-80{color:#6ab06a}
+  .acc-70{color:#e08800} .acc-60{color:#cc6600} .acc-low{color:#cc0000}
+  .exact-yes { color: #1a7a1a; font-weight: bold; }
+  .exact-no  { color: #bbb; }
+
+  .run-tag { display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; color: white; white-space: nowrap; }
+  .tag-av{background:#2E75B6} .tag-pp{background:#7030A0} .tag-merged{background:#C55A11}
+  .tag-match{background:#375623} .tag-furigana{background:#843C0C}
+
+  .diff { background: #ffe0e0; border-radius: 2px; padding: 0 1px; }
+  .furi-hit { background: #fff0c0; border-radius: 2px; padding: 0 2px; font-size: 10px; border: 1px solid #e0c000; }
+
+  /* ── Type breakdown ── */
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0 24px; }
+  .type-card { background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+  .type-card-header { padding: 8px 12px; font-weight: bold; font-size: 12px; color: white; }
+  .type-card-header.dialogue { background: #2E75B6; }
+  .type-card-header.item { background: #7030A0; }
+  .type-inner { padding: 10px 12px; }
+  .type-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; border-bottom: 1px solid #f0f0f0; }
+  .type-row:last-child { border-bottom: none; }
+
+  /* ── Small kana & furigana detail ── */
+  .detail-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  .detail-card { background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+  .detail-card-header { padding: 7px 12px; font-weight: bold; font-size: 12px; background: #f5f5f5; border-bottom: 1px solid #ddd; }
+  .detail-table { border-collapse: collapse; width: 100%; }
+  .detail-table th { background: #eee; padding: 5px 10px; font-size: 10px; text-align: left; }
+  .detail-table td { padding: 5px 10px; border-bottom: 1px solid #eee; font-size: 12px; }
+  .detail-table tr:last-child td { border-bottom: none; }
+
+  .insight { background: #fff8e1; border-left: 4px solid #f9a825; padding: 8px 12px; margin: 10px 0; border-radius: 0 6px 6px 0; font-size: 12px; line-height: 1.6; }
+  .insight strong { display: block; margin-bottom: 3px; }
+
+  .footnote { font-size: 11px; color: #888; margin-top: 36px; border-top: 1px solid #ddd; padding-top: 10px; line-height: 1.7; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>Zelda BotW OCR Variant — Accuracy Analysis</h1>
+<div class="subtitle">5 variants · 9 scenes · Multiple metrics · Ground truth extracted manually from raw training images</div>
+
+<!-- ── METRIC EXPLANATIONS ── -->
+<h2>Metrics Explained</h2>
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="mc-name">Fuzzy Accuracy</div>
+    <div class="mc-desc">Edit distance (insertions + deletions + substitutions) between OCR and truth, normalised by the longer string. A score of 90% means 10% of characters needed correction.</div>
+    <div class="mc-formula">1 − edit_dist / max(len_ocr, len_truth)</div>
+  </div>
+  <div class="metric-card">
+    <div class="mc-name">Exact Match</div>
+    <div class="mc-desc">Binary yes/no — does the normalised OCR string equal the normalised truth string exactly. The strictest possible measure. Spaces and punctuation are stripped before comparison.</div>
+    <div class="mc-formula">normalize(ocr) == normalize(truth)</div>
+  </div>
+  <div class="metric-card">
+    <div class="mc-name">Precision</div>
+    <div class="mc-desc">Of every character the OCR output, what fraction was actually in the truth. Low precision = hallucination (e.g. outputting 老人 or シーカーストーン when not in ground truth).</div>
+    <div class="mc-formula">matched_chars / len(ocr)</div>
+  </div>
+  <div class="metric-card">
+    <div class="mc-name">Recall</div>
+    <div class="mc-desc">Of every character in the truth, what fraction appeared in the OCR output. Low recall = dropped characters (e.g. ネ dropped from パネル, or small kana dropped).</div>
+    <div class="mc-formula">matched_chars / len(truth)</div>
+  </div>
+  <div class="metric-card">
+    <div class="mc-name">F1 Score</div>
+    <div class="mc-desc">Harmonic mean of precision and recall. Balances both failure modes. Preferred summary metric when both hallucination and dropping are relevant failure modes.</div>
+    <div class="mc-formula">2 × P × R / (P + R)</div>
+  </div>
+</div>
+
+<p style="font-size:12px;color:#555;margin-bottom:0">
+  <strong>Note on fuzzy vs F1:</strong> Fuzzy accuracy penalises length mismatches harshly — outputting two extra characters on a 20-char string hurts more than it should. F1 via character multiset intersection is more forgiving of positional errors but does not care about order. Both are shown because they expose different failure modes. <strong>Exact match is the 1:1 character score you asked for</strong> — a scene either passed or failed, no partial credit.
+</p>
+
+<!-- ── OVERALL RANKING ── -->
+<h2>Overall Ranking</h2>
+
+<div class="summary-grid">
+  <div class="summary-card card-1">
+    <div class="rank-num" style="color:#1a7a1a">#1</div>
+    <div class="run-name">Apple Vision (av)</div>
+    <div class="big-score" style="color:#1a7a1a">91.0%</div>
+    <div class="sub-scores">
+      F1: 94.5%<br>
+      Exact: 2 / 8<br>
+      Furi contamination: 1<br>
+      Small kana errors: 1/7
+    </div>
+  </div>
+  <div class="summary-card card-2">
+    <div class="rank-num" style="color:#2E75B6">#2</div>
+    <div class="run-name">paddle_postprocess</div>
+    <div class="big-score" style="color:#2E75B6">89.7%</div>
+    <div class="sub-scores">
+      F1: 94.3%<br>
+      Exact: 3 / 8<br>
+      Furi contamination: 1<br>
+      Small kana errors: 3/7
+    </div>
+  </div>
+  <div class="summary-card card-3">
+    <div class="rank-num" style="color:#7030A0">#3</div>
+    <div class="run-name">paddle_ocr_reading_match</div>
+    <div class="big-score" style="color:#7030A0">87.4%</div>
+    <div class="sub-scores">
+      F1: 93.4%<br>
+      Exact: 2 / 6<br>
+      Furi contamination: 1<br>
+      Small kana errors: 2/6
+    </div>
+  </div>
+  <div class="summary-card card-4">
+    <div class="rank-num" style="color:#C55A11">#4</div>
+    <div class="run-name">paddle_merged</div>
+    <div class="big-score" style="color:#C55A11">86.0%</div>
+    <div class="sub-scores">
+      F1: 92.4%<br>
+      Exact: 3 / 8<br>
+      Furi contamination: 1<br>
+      Small kana errors: 3/7
+    </div>
+  </div>
+  <div class="summary-card card-5">
+    <div class="rank-num" style="color:#843C0C">#5</div>
+    <div class="run-name">paddle_furigana</div>
+    <div class="big-score" style="color:#843C0C">77.6%</div>
+    <div class="sub-scores">
+      F1: 88.1%<br>
+      Exact: 2 / 9<br>
+      Furi contamination: 4<br>
+      Small kana errors: 4/9
+    </div>
+  </div>
+</div>
+
+<table class="rank-table">
+  <tr>
+    <th>#</th><th>Variant</th>
+    <th>Fuzzy Acc ↓</th><th>Fuzzy Bar</th>
+    <th>F1</th>
+    <th>Precision</th><th>Recall</th>
+    <th>Exact Match</th>
+    <th>Furi Contamination</th>
+    <th>Small Kana Errors</th>
+    <th>Scenes</th>
+  </tr>
+  <tr>
+    <td class="bold">1</td>
+    <td><span class="run-tag tag-av">av</span> Apple Vision</td>
+    <td class="bold acc-90">91.0%</td>
+    <td><div class="bar-wrap"><div class="bar" style="width:109px;background:#1a7a1a"></div></div></td>
+    <td>94.5%</td><td>91.2%</td><td>97.9%</td>
+    <td><span class="exact-yes">✓</span> 2 / 8 (25%)</td>
+    <td>1 / 8</td><td>1 / 7</td><td>8</td>
+  </tr>
+  <tr>
+    <td class="bold">2</td>
+    <td><span class="run-tag tag-pp">pp</span> paddle_postprocess</td>
+    <td class="bold acc-90">89.7%</td>
+    <td><div class="bar-wrap"><div class="bar" style="width:108px;background:#7030A0"></div></div></td>
+    <td>94.3%</td><td>93.6%</td><td>95.1%</td>
+    <td><span class="exact-yes">✓</span> 3 / 8 (38%)</td>
+    <td>1 / 8</td><td>3 / 7</td><td>8*</td>
+  </tr>
+  <tr>
+    <td class="bold">3</td>
+    <td><span class="run-tag tag-match">match</span> paddle_ocr_reading_match</td>
+    <td class="bold acc-80">87.4%</td>
+    <td><div class="bar-wrap"><div class="bar" style="width:105px;background:#375623"></div></div></td>
+    <td>93.4%</td><td>93.0%</td><td>93.8%</td>
+    <td><span class="exact-yes">✓</span> 2 / 6 (33%)</td>
+    <td>1 / 6</td><td>2 / 6</td><td>6</td>
+  </tr>
+  <tr>
+    <td class="bold">4</td>
+    <td><span class="run-tag tag-merged">mgd</span> paddle_merged</td>
+    <td class="bold acc-80">86.0%</td>
+    <td><div class="bar-wrap"><div class="bar" style="width:103px;background:#C55A11"></div></div></td>
+    <td>92.4%</td><td>91.9%</td><td>92.9%</td>
+    <td><span class="exact-yes">✓</span> 3 / 8 (38%)</td>
+    <td>1 / 8</td><td>3 / 7</td><td>8</td>
+  </tr>
+  <tr>
+    <td class="bold">5</td>
+    <td><span class="run-tag tag-furigana">fur</span> paddle_furigana</td>
+    <td class="bold acc-70">77.6%</td>
+    <td><div class="bar-wrap"><div class="bar" style="width:93px;background:#843C0C"></div></div></td>
+    <td>88.1%</td><td>85.5%</td><td>90.9%</td>
+    <td><span class="exact-yes">✓</span> 2 / 9 (22%)</td>
+    <td>4 / 9</td><td>4 / 9</td><td>9</td>
+  </tr>
+</table>
+<p style="font-size:11px;color:#888">* paddle_postprocess had a duplicate チュチュ scene — duplicate excluded from averages. Ranking re-ordered vs previous report: postprocess moves to #2 once the duplicate is removed.</p>
+
+<!-- ── DIALOGUE vs ITEM BREAKDOWN ── -->
+<h2>Dialogue vs Item Description Breakdown</h2>
+<p>Every scene falls into one of two categories. They behave very differently — dialogue sits on a semi-transparent bar with furigana; item descriptions sit on a dark near-black background with no furigana.</p>
+
+<div class="type-grid">
+  <div class="type-card">
+    <div class="type-card-header dialogue">Dialogue scenes (scenes 01–06) — wide bar, furigana present</div>
+    <div class="type-inner">
+      <div class="type-row"><span><span class="run-tag tag-av">av</span> Apple Vision</span>     <span><b>94.8%</b> fuzzy · F1 96.0% · 2/6 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-pp">pp</span> paddle_postprocess</span><span><b>97.0%</b> fuzzy · F1 97.8% · 3/6 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-match">match</span> reading_match</span><span><b>98.2%</b> fuzzy · F1 98.5% · 2/4 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-merged">mgd</span> paddle_merged</span> <span><b>94.1%</b> fuzzy · F1 96.5% · 3/6 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-furigana">fur</span> paddle_furigana</span><span><b>87.7%</b> fuzzy · F1 92.6% · 2/6 exact</span></div>
+    </div>
+  </div>
+  <div class="type-card">
+    <div class="type-card-header item">Item description scenes (scenes 07–09) — dark bg, no furigana</div>
+    <div class="type-inner">
+      <div class="type-row"><span><span class="run-tag tag-av">av</span> Apple Vision</span>     <span><b>79.7%</b> fuzzy · F1 91.3% · 0/2 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-pp">pp</span> paddle_postprocess</span><span><b>67.9%</b> fuzzy · F1 85.5% · 0/2 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-match">match</span> reading_match</span><span><b>65.7%</b> fuzzy · F1 82.3% · 0/2 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-merged">mgd</span> paddle_merged</span> <span><b>61.3%</b> fuzzy · F1 83.0% · 0/2 exact</span></div>
+      <div class="type-row"><span><span class="run-tag tag-furigana">fur</span> paddle_furigana</span><span><b>65.4%</b> fuzzy · F1 82.0% · 0/3 exact</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="insight">
+  <strong>The gap between dialogue and item description accuracy is enormous — and consistent across all variants.</strong>
+  Dialogue scenes average 94%+ fuzzy across the board. Item description scenes average 65–80%. No variant achieved a single exact match on any item description scene. This is the single biggest quality gap in the system and is primarily driven by: (1) small kana degradation on dark backgrounds, (2) the item name region being concatenated into the output.
+</div>
+
+<!-- ── SMALL KANA & FURIGANA ── -->
+<h2>Small Kana Errors &amp; Furigana Contamination</h2>
+
+<div class="detail-2col">
+  <div class="detail-card">
+    <div class="detail-card-header">Small Kana Errors (っ ッ ぷ ゅ ゃ etc.)</div>
+    <table class="detail-table">
+      <tr><th>Variant</th><th>Errors</th><th>Total small kana in truth</th><th>Error rate</th></tr>
+      <tr><td><span class="run-tag tag-av">av</span></td>      <td>1</td><td>7</td><td style="color:#3a9a3a"><b>14.3%</b></td></tr>
+      <tr><td><span class="run-tag tag-pp">pp</span></td>      <td>3</td><td>7</td><td style="color:#e08800"><b>42.9%</b></td></tr>
+      <tr><td><span class="run-tag tag-match">match</span></td><td>2</td><td>6</td><td style="color:#e08800"><b>33.3%</b></td></tr>
+      <tr><td><span class="run-tag tag-merged">mgd</span></td> <td>3</td><td>7</td><td style="color:#e08800"><b>42.9%</b></td></tr>
+      <tr><td><span class="run-tag tag-furigana">fur</span></td><td>4</td><td>9</td><td style="color:#cc6600"><b>44.4%</b></td></tr>
+    </table>
+    <p style="font-size:11px;color:#666;padding:6px 10px;margin:0">Common errors: チュチュ→チチ (ュ dropped), そっくり→そつく (っ→つ), ぷるぷる→るる (ぷ→る), ちょっと→ちよつと (ょ→よ, っ→つ). Apple Vision handles small kana substantially better than all Paddle variants.</p>
+  </div>
+  <div class="detail-card">
+    <div class="detail-card-header">Furigana Contamination (furigana text appearing in OCR output)</div>
+    <table class="detail-table">
+      <tr><th>Variant</th><th>Scenes contaminated</th><th>Patterns found</th></tr>
+      <tr><td><span class="run-tag tag-av">av</span></td>      <td style="color:#3a9a3a"><b>1 / 8</b></td><td>老人 (speaker label, not furigana)</td></tr>
+      <tr><td><span class="run-tag tag-pp">pp</span></td>      <td style="color:#3a9a3a"><b>1 / 8</b></td><td>Item name from secondary region</td></tr>
+      <tr><td><span class="run-tag tag-match">match</span></td><td style="color:#3a9a3a"><b>1 / 6</b></td><td>Item name from secondary region</td></tr>
+      <tr><td><span class="run-tag tag-merged">mgd</span></td> <td style="color:#3a9a3a"><b>1 / 8</b></td><td>Item name from secondary region</td></tr>
+      <tr><td><span class="run-tag tag-furigana">fur</span></td><td style="color:#cc0000"><b>4 / 9</b></td><td>たから, ねむ, たの, ひかほこら</td></tr>
+    </table>
+    <p style="font-size:11px;color:#666;padding:6px 10px;margin:0">paddle_furigana's CC-based removal fails to suppress furigana on complex kanji (宝/眠/楽) and on dense furigana-per-word dialogue (scene 05). All other variants: the single "contamination" is the item name appended from the secondary title region — a region grouping issue, not an OCR issue.</p>
+  </div>
+</div>
+
+<!-- ── PER-SCENE BREAKDOWN ── -->
+<h2>Per-Scene Breakdown</h2>
+
+<!-- Scene 01 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 01 <span class="scene-type-tag tag-dialogue">dialogue</span> — furigana present, wide bar</div>
+    <div class="scene-truth">今わしの見ている先に 怪しげに光る 祠のようなものが見えるな？</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>今わしの見ている先に 怪しげに光る 祠のようなものが見えるな？</td></tr>
+    <tr><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>今わしの見ている先に 怪しげに光る祠のようなものが見えるな？</td></tr>
+    <tr><td><span class="run-tag tag-match">match</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>今わしの見ている先に 怪しげに光る祠のようなものが見えるな？</td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>今わしの見ている先に 怪しげに光る祠のようなものが見えるな？</td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>今わしの見ている先に 怪しげに光る祠のようなものが見えるな？</td></tr>
+  </table>
+</div>
+
+<!-- Scene 02 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 02 <span class="scene-type-tag tag-dialogue">dialogue</span> — two lines, furigana present</div>
+    <div class="scene-truth">あれは 塔が地面からせり出したのと同時に あのように 光り始めたのじゃ</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output / Notes</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-90">96.9%</td><td class="center exact-no">✗</td><td class="center">97%</td><td class="center">97%</td><td class="center">97%</td><td class="center">0</td><td>あれは塔が地面からせり出したのと同時に あのように光り始めたのじ<span class="diff">や</span> — じゃ→じや</td></tr>
+    <tr><td><span class="run-tag tag-match">match</span></td><td class="center acc acc-90">96.9%</td><td class="center exact-no">✗</td><td class="center">97%</td><td class="center">97%</td><td class="center">97%</td><td class="center">0</td><td>あれは塔が地面からせり出したのと同時に あのように光り始めたのじ<span class="diff">や</span> — same</td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-90">96.9%</td><td class="center exact-no">✗</td><td class="center">97%</td><td class="center">97%</td><td class="center">97%</td><td class="center">0</td><td>あれは塔が地面からせり出したのと同時に あのように光り始めたのじ<span class="diff">や</span> — same</td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-90">96.9%</td><td class="center exact-no">✗</td><td class="center">97%</td><td class="center">97%</td><td class="center">97%</td><td class="center">0</td><td>あれは塔が地面からせ<span class="diff">⚠</span>出したのと同時に あのように光り始めたのじゃ — り dropped but じゃ correct</td></tr>
+    <tr><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-90">91.2%</td><td class="center exact-no">✗</td><td class="center">88%</td><td class="center">97%</td><td class="center">92%</td><td class="center">0</td><td>あれは 塔が地面からせり出したのと同時に あのように 光り始めたのじや <span class="diff">老人</span> — speaker bleed + じや</td></tr>
+  </table>
+</div>
+
+<!-- Scene 03 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 03 <span class="scene-type-tag tag-dialogue">dialogue</span> — two lines</div>
+    <div class="scene-truth">ああいう場所には たいがい お宝が眠っておるものよ</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output / Notes</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>ああいう場所には たいがいお宝が眠っておるものよ</td></tr>
+    <tr><td><span class="run-tag tag-match">match</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>ああいう場所には たいがいお宝が眠っておるものよ</td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>ああいう場所には たいがいお宝が眠っておるものよ</td></tr>
+    <tr><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-90">92.0%</td><td class="center exact-no">✗</td><td class="center">88%</td><td class="center">100%</td><td class="center">93%</td><td class="center">0</td><td>ああいう場所には たいがいお宝が眠っておるものよ <span class="diff">老人</span> — precision hit from speaker bleed</td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-70">77.8%</td><td class="center exact-no">✗</td><td class="center">79%</td><td class="center">95%</td><td class="center">86%</td><td class="center">0</td><td>ああいう場所には <span class="furi-hit">たからねむ</span> たいがい宝が眠っておるものよ — furigana contamination</td></tr>
+  </table>
+</div>
+
+<!-- Scene 04 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 04 <span class="scene-type-tag tag-dialogue">dialogue</span> — cyan coloured text, furigana present</div>
+    <div class="scene-truth">パラセールが欲しいのじゃろう？ お宝 楽しみにしておるぞ</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output / Notes</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-90">96.0%</td><td class="center exact-no">✗</td><td class="center">96%</td><td class="center">96%</td><td class="center">96%</td><td class="center">0</td><td><span class="diff">バ</span>ラセールが欲しいのじゃろう？ お宝楽しみにしておるぞ — パ→バ on cyan text</td></tr>
+    <tr><td><span class="run-tag tag-match">match</span></td><td class="center acc acc-90">96.0%</td><td class="center exact-no">✗</td><td class="center">96%</td><td class="center">96%</td><td class="center">96%</td><td class="center">0</td><td>パラセールが欲しいのじゃろう？ お宝<span class="diff">し</span>みにしておるぞ — 楽 dropped</td></tr>
+    <tr><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-90">92.0%</td><td class="center exact-no">✗</td><td class="center">94%</td><td class="center">92%</td><td class="center">93%</td><td class="center">0</td><td>パラセールが欲しいのじゃろう？ お宝<span class="diff">し</span>みにし<span class="diff">て</span>るぞ — 楽 dropped + おる→る</td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-90">92.0%</td><td class="center exact-no">✗</td><td class="center">94%</td><td class="center">92%</td><td class="center">93%</td><td class="center">0</td><td>パラセールが欲しいのじゃろう？ お宝<span class="diff">し</span>みにし<span class="diff">て</span>るぞ — same</td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-70">75.0%</td><td class="center exact-no">✗</td><td class="center">73%</td><td class="center">92%</td><td class="center">81%</td><td class="center">0</td><td>パラセールが欲しいのじゃろう？ <span class="furi-hit">たからたの</span> お宝楽し<span class="diff">に</span>してるぞ — furigana contamination</td></tr>
+  </table>
+</div>
+
+<!-- Scene 05 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 05 <span class="scene-type-tag tag-dialogue">dialogue</span> — wide bar, dense furigana above every content word</div>
+    <div class="scene-truth">さあ 早う 光る祠から お宝を取ってこい</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output / Notes</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-90">94.1%</td><td class="center exact-no">✗</td><td class="center">100%</td><td class="center">94%</td><td class="center">97%</td><td class="center">1</td><td>さあ早う光る祠からお宝を取<span class="diff">つ</span>てこい — っ→つ only error</td></tr>
+    <tr><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-80">89.5%</td><td class="center exact-no">✗</td><td class="center">86%</td><td class="center">94%</td><td class="center">90%</td><td class="center">0</td><td>さあ早う光る祠から お宝を取ってこい <span class="diff">老人</span> — ってこい correct but speaker bleed</td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-70">76.5%</td><td class="center exact-no">✗</td><td class="center">94%</td><td class="center">76%</td><td class="center">84%</td><td class="center">1</td><td>さ<span class="diff">⚠</span>早う光る<span class="diff">か</span>お宝を取<span class="diff">つ</span>てこい — さあ→さ; 祠→か</td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-low">52.6%</td><td class="center exact-no">✗</td><td class="center">59%</td><td class="center">65%</td><td class="center">62%</td><td class="center">0</td><td><span class="furi-hit">ひかほこら</span> さ<span class="diff">⚠</span>早光る祠から宝を取<span class="diff">つ</span>てこい — 5 furigana tokens output as text</td></tr>
+  </table>
+</div>
+
+<!-- Scene 06 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 06 <span class="scene-type-tag tag-dialogue">dialogue</span> — short single line, one furigana (たの above 楽)</div>
+    <div class="scene-truth">楽しみにしておるぞ</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>楽しみにしておるぞ</td></tr>
+    <tr><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>楽しみにしておるぞ</td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>楽しみにしておるぞ</td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-100">100%</td><td class="center exact-yes">✓</td><td class="center">100%</td><td class="center">100%</td><td class="center">100%</td><td class="center">0</td><td>楽しみにしておるぞ</td></tr>
+  </table>
+</div>
+
+<!-- Scene 07 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 07 <span class="scene-type-tag tag-item">item</span> — dark background, three lines, no furigana, katakana-heavy</div>
+    <div class="scene-truth">チュチュとそっくりなぷるぷるした固まり とても不安定な状態で 何か刺激を与えると変化するらしい</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output / Notes</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-80">80.4%</td><td class="center exact-no">✗</td><td class="center">79%</td><td class="center">98%</td><td class="center">87%</td><td class="center">1</td><td>チュチュとそっくりな<span class="diff">るぶ</span>るした固まり とても不安定な状態で 何か刺<span class="diff">潔</span>を与えると変化するらしい <span class="diff">チュチュゼリー</span></td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-60">64.4%</td><td class="center exact-no">✗</td><td class="center">75%</td><td class="center">80%</td><td class="center">77%</td><td class="center">2</td><td><span class="diff">チチ</span>とそ<span class="diff">つく</span>なる<span class="diff">るしまり</span> とても不安定な状態で 何か刺激を与えると変化する<span class="diff">しい</span> <span class="diff">チュチュゼリー</span></td></tr>
+    <tr><td><span class="run-tag tag-match">match</span></td><td class="center acc acc-60">60.0%</td><td class="center exact-no">✗</td><td class="center">73%</td><td class="center">76%</td><td class="center">74%</td><td class="center">2</td><td><span class="diff">チチ</span>そ<span class="diff">つく</span>なる<span class="diff">るしま</span> とても不安定な状態で 何か刺激を与えると変化する<span class="diff">しい</span> <span class="diff">チュチュゼリー</span></td></tr>
+    <tr><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-60">60.0%</td><td class="center exact-no">✗</td><td class="center">73%</td><td class="center">76%</td><td class="center">74%</td><td class="center">2</td><td><span class="diff">チチ</span>そ<span class="diff">つく</span>なる<span class="diff">るしま</span> とても不安定な状態で 何か刺激を与えると変化する<span class="diff">しい</span> <span class="diff">チュチュゼリー</span></td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-low">57.8%</td><td class="center exact-no">✗</td><td class="center">72%</td><td class="center">73%</td><td class="center">72%</td><td class="center">2</td><td><span class="diff">チチ</span>とそ<span class="diff">つくるるしま</span> とても不安定<span class="diff">⚠</span>状態で 何か刺激を与えると変化する<span class="diff">しい</span> <span class="diff">チュチュゼリー</span></td></tr>
+  </table>
+</div>
+
+<!-- Scene 08 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 08 <span class="scene-type-tag tag-item">item</span> — dark background, two lines, no furigana</div>
+    <div class="scene-truth">中央のパネルが光る 不思議な板 初めて見る物なのに 何だか懐かしい</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output / Notes</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-av">av</span></td><td class="center acc acc-70">78.9%</td><td class="center exact-no">✗</td><td class="center">79%</td><td class="center">100%</td><td class="center">88%</td><td class="center">0</td><td>中央のパネルが光る不思議な板 初めて見る物なのに 何だか懐かしい <span class="diff">シーカーストーン</span> — correct text, item name appended</td></tr>
+    <tr><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-70">75.7%</td><td class="center exact-no">✗</td><td class="center">76%</td><td class="center">97%</td><td class="center">85%</td><td class="center">0</td><td>中央の<span class="diff">パル</span>が光る不思議な板 初めて見る物なのに何だか懐かしい <span class="diff">シーカーストーン</span> — パネル→パル</td></tr>
+    <tr><td><span class="run-tag tag-pp">pp</span></td><td class="center acc acc-70">75.0%</td><td class="center exact-no">✗</td><td class="center">79%</td><td class="center">94%</td><td class="center">86%</td><td class="center">0</td><td>中央の<span class="diff">パル</span>が光る不思議な板 初めて見る物なのに何だか懐か<span class="diff">し</span> <span class="diff">シーカーストーン</span></td></tr>
+    <tr><td><span class="run-tag tag-match">match</span></td><td class="center acc acc-70">71.4%</td><td class="center exact-no">✗</td><td class="center">75%</td><td class="center">91%</td><td class="center">82%</td><td class="center">0</td><td>中央の<span class="diff">パル</span>が光る不思議な板 初めて見る物<span class="diff">の</span>に何だか懐か<span class="diff">し</span> <span class="diff">シーカーストーン</span></td></tr>
+    <tr><td><span class="run-tag tag-merged">mgd</span></td><td class="center acc acc-60">64.7%</td><td class="center exact-no">✗</td><td class="center">70%</td><td class="center">88%</td><td class="center">78%</td><td class="center">0</td><td>中央の<span class="diff">パ</span>が光る不思議な板 初めて見る物<span class="diff">の</span>に何だか<span class="diff">かしい</span> <span class="diff">シーカーストーン</span> — ネル fully dropped</td></tr>
+  </table>
+</div>
+
+<!-- Scene 09 -->
+<div class="scene-block">
+  <div class="scene-header">
+    <div class="scene-truth-label">Scene 09 <span class="scene-type-tag tag-item">item</span> — dark background, three lines — paddle_furigana only</div>
+    <div class="scene-truth">あちこちすり切れたパンツ 着古されているが その分はき心地が良い でもちょっとすそが短い</div>
+  </div>
+  <table class="scene-table">
+    <tr><th class="left">Variant</th><th>Fuzzy</th><th>Exact</th><th>Prec</th><th>Rec</th><th>F1</th><th>SK err</th><th class="left">OCR Output / Notes</th></tr>
+    <tr class="best-row"><td><span class="run-tag tag-furigana">fur</span></td><td class="center acc acc-low">56.1%</td><td class="center exact-no">✗</td><td class="center">65%</td><td class="center">76%</td><td class="center">70%</td><td class="center">2</td><td>あちこちす<span class="diff">⚠</span>切<span class="diff">⚠</span>パンツ 着古<span class="diff">さてが</span>その分は心地良 でもち<span class="diff">よつと</span>すそ<span class="diff">か</span>短い <span class="diff">古びたパンツ</span> — ちょっと→ちよつと (2× small kana)</td></tr>
+  </table>
+</div>
+
+<!-- ── KEY FINDINGS ── -->
+<h2>Key Findings &amp; Recommendations</h2>
+
+<h3>1 · Exact match rate is low across the board — but that is expected</h3>
+<p>The highest exact match rate is paddle_postprocess and paddle_merged at 38% (3/8 scenes). No variant reached exact match on any item description scene. This is partly because the item name from the secondary region is being concatenated into the output — if that were stripped, several more scenes would be exact matches. The じゃ→じや error alone blocks exact match on scene 02 for all Paddle variants.</p>
+
+<div class="insight">
+  <strong>Two fixes would dramatically improve exact match rate:</strong>
+  (1) Strip the item name suffix before scoring — it's a region grouping artifact, not an OCR error.
+  (2) Add <code>"じや": "じゃ"</code> to _EXACT_FIXES — this one substitution would fix scene 02 across all Paddle variants and push exact match to 50%+ for postprocess/merged.
+</div>
+
+<h3>2 · Apple Vision leads on fuzzy accuracy but has the worst precision</h3>
+<p>AV's recall is outstanding (97.9%) — it reads nearly every character that should be there. But its precision (91.2%) is the lowest of all variants because it consistently appends speaker labels ("老人") from a region adjacent to the dialogue crop. This is a bounds configuration issue. Fix the crop height and AV's precision likely reaches 97%+, making it the clear winner by all metrics.</p>
+
+<h3>3 · Paddle recall > Paddle precision on item descriptions</h3>
+<p>Across scenes 07–08, recall averages 80–85% but precision averages 72–76%. The Paddle variants are dropping characters (recall loss) but not hallucinating new ones (precision is still reasonable). The exception is furigana contamination on paddle_furigana where both drop.</p>
+
+<h3>4 · paddle_furigana's CC removal is the weakest furigana suppression strategy</h3>
+<p>4 out of 9 scenes contaminated vs 1 out of 8 for every other variant. The row-density approach used by postprocess/merged/reading_match is substantially more robust for this game's font. CC removal's theoretical precision advantage does not materialise in practice here.</p>
+
+<h3>5 · Recommended _EXACT_FIXES additions</h3>
+<p>Based on patterns appearing across multiple runs and scenes:</p>
+<ul style="font-size:12px;line-height:2">
+  <li><code>"じや": "じゃ"</code> — systematic dakuten drop on scenes 02, 04 across all Paddle v5 variants</li>
+  <li><code>"チチ": "チュチュ"</code> — consistent small ュ drop on dark background katakana (scenes 07, 09)</li>
+  <li><code>"そつく": "そっく"</code> — っ→つ in そっくり, appears in 4 of 5 variants on scene 07</li>
+  <li><code>"パル": "パネル"</code> — ネ drop in パネル, appears in 4 of 5 variants on scene 08</li>
+</ul>
+<p style="font-size:12px;color:#888">Note: verify each against full Japanese vocabulary before adding — some of these substrings may appear in unrelated words where the fix would be incorrect.</p>
+
+<div class="footnote">
+  <strong>Metric definitions:</strong> All metrics computed after normalisation (spaces, 。、・…？！「」 stripped). <em>Fuzzy accuracy</em>: 1 − edit_distance(ocr, truth) / max(len_ocr, len_truth); Wagner-Fischer algorithm with substitution cost 1. <em>Exact match</em>: binary, normalize(ocr) == normalize(truth). <em>Precision/Recall</em>: character multiset intersection — counts how many characters (by type and frequency) the OCR and truth share, regardless of position. <em>F1</em>: harmonic mean of precision and recall. <em>Small kana error</em>: count of っッぁぃぅぇぉゃゅょァィゥェォャュョ in truth that are absent or incorrect in OCR output (multiset comparison). <em>Furigana contamination</em>: presence of known furigana reading patterns (たから, ねむ, たの, ひかほこら etc.) in OCR output. Duplicate scenes excluded from per-run averages. Item name suffixes (シーカーストーン, チュチュゼリー etc.) are included in OCR output and penalise precision scores — these are region grouping artifacts rather than OCR errors.
+</div>
+</body>
+</html>

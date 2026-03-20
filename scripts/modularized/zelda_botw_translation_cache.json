@@ -1,47 +1,42 @@
 {
-  "何か刺激を与えると変化するに": {
-    "japanese": "何か刺激を与えると変化するに",
-    "translation": "If you give it any kind of stimulus, it will change.",
-    "romaji": "nan ka shigeki wo ataeru to henka suru ni"
+  "今わしの見ている先に怪しげに光る祠のようなものが見えるな？": {
+    "japanese": "今わしの見ている先に 怪しげに光る 祠のようなものが見えるな？",
+    "translation": "Now, do you see something ahead that shines suspiciously, like a shrine?",
+    "romaji": "ima washi no mi te iru saki ni ayashi ge ni hikaru hokora no you na mono ga mieru na ?"
   },
-  "焦るでない": {
-    "japanese": "焦るでない・・",
-    "translation": "Don't panic..",
-    "romaji": "aseru de nai ・ ・"
+  "あれは塔が地面からせり出したのと同時にあのように光り始めたのじや老人": {
+    "japanese": "あれは 塔が地面からせり出したのと同時に あのように 光り始めたのじや 老人",
+    "translation": "That light began to shine as soon as the tower rose from the ground, old man.",
+    "romaji": "are ha tou ga jimen kara seridashi ta no to douji ni ano you ni hikari hajime ta no ji ya roujin"
   },
-  "焦るでないもう少しばかり先じゃついてまいれ": {
-    "japanese": "焦るでない・・ もう少しばかり先じゃ ついてまいれ",
-    "translation": "Don't panic… Just a little further ahead, and you'll catch up.",
-    "romaji": "aseru de nai ・ ・ mou sukoshi bakari saki ja tsui te maire"
+  "ああいう場所にはたいがいお宝が眠っておるものよ老人": {
+    "japanese": "ああいう場所には たいがいお宝が眠っておるものよ 老人",
+    "translation": "Places like that usually have treasure sleeping in them, old man.",
+    "romaji": "aa iu basho ni ha taigai o takara ga nemutsu te oru mono yo roujin"
   },
-  "何か刺を与えると変化するに": {
-    "japanese": "何か刺を与えると変化するに",
-    "translation": "Something changes when you give it a prick...",
-    "romaji": "nan ka sashi wo ataeru to henka suru ni"
+  "バラセールが欲しいのじゃろう？お宝楽しみにしておるぞ": {
+    "japanese": "バラセールが欲しいのじゃろう？ お宝楽しみにしておるぞ",
+    "translation": "Want some treasure, eh? Enjoy the loot, you lucky dog.",
+    "romaji": "bara seeru ga hoshii no jarou ? o takara tanoshimi ni shi te oru zo"
   },
-  "チュチュゼリー": {
-    "japanese": "チュチュゼリー",
-    "translation": "Tutu Zeri",
-    "romaji": "chuchu zerii"
+  "中央のパネルが光る不思議な板初めて見る物なのに何だか懐かしいシーカーストーン": {
+    "japanese": "中央のパネルが光る不思議な板 初めて見る物なのに 何だか懐かしい シーカーストーン",
+    "translation": "The central panel is an amazing board that glows. Even though it's something I've never seen before, it feels somehow familiar. Sheikah Stone",
+    "romaji": "chuuou no paneru ga hikaru fushigi na ita hajimete miru mono na no ni nan da ka natsukashii shiikaa sutoon"
   },
-  "のじゃろう？": {
-    "japanese": "のじゃろう？",
-    "translation": "isn't it?",
-    "romaji": "no jarou ?"
+  "チュチュとそっくりなるぶるした固まりとても不安定な状態で何か刺潔を与えると変化するらしいチュチュゼリー": {
+    "japanese": "チュチュとそっくりなるぶるした固まり とても不安定な状態で 何か刺潔を与えると変化するらしい チュチュゼリー",
+    "translation": "A clump that looks exactly like a Tute, in a very unstable state. If you give it something sharp, it changes. Tute Berry",
+    "romaji": "chuchu to sokkuri naru buru shi ta katamari totemo fu antei na joutai de nan ka sashi kiyoshi wo ataeru to henka suru rashii chuchu zerii"
   },
-  "チュチュとそっくりなぶるぶるした固まりとても不安定な状態で何か刺を与えると変化するらしい": {
-    "japanese": "チュチュとそっくりなぶるぶるした固まり とても不安定な状態で 何か刺を与えると変化するらしい",
-    "translation": "A clump that looks just like Tchu-Tchu, trembling and very unstable, and if you give it something to pierce it, it changes, apparently.",
-    "romaji": "chuchu to sokkuri na buruburu shi ta katamari totemo fu antei na joutai de nan ka sashi wo ataeru to henka suru rashii"
+  "さあ早う光る祠からお宝を取ってこい老人": {
+    "japanese": "さあ早う光る祠から お宝を取ってこい 老人",
+    "translation": "Now go get the treasure from the glowing shrine, old man!",
+    "romaji": "saa hayou hikaru hokora kara o takara wo totsu te koi roujin"
   },
-  "チュチュとそっくりなぶるぶるした固まりとても不安定な状態で何か刺激を与えると変化するらしい": {
-    "japanese": "チュチュとそっくりなぶるぶるした固まり とても不安定な状態で 何か刺激を与えると変化するらしい",
-    "translation": "A clump that looks exactly like Tchu-Tchu, very unstable, and it changes when given any kind of stimulus.",
-    "romaji": "chuchu to sokkuri na buruburu shi ta katamari totemo fu antei na joutai de nan ka shigeki wo ataeru to henka suru rashii"
-  },
-  "チュチュとそっくりなぶるぶるした固まりとても不安定な状態で何か刺邀を与えると変化するらしい": {
-    "japanese": "チュチュとそっくりなぶるぶるした固まり とても不安定な状態で 何か刺邀を与えると変化するらしい",
-    "translation": "A clump that looks just like Tchu-Tchu, trembling and very unstable, changes if you give it something to stab into it.",
-    "romaji": "chuchu to sokkuri na buruburu shi ta katamari totemo fu antei na joutai de nan ka shi you wo ataeru to henka suru rashii"
+  "楽しみにしておるぞ": {
+    "japanese": "楽しみにしておるぞ",
+    "translation": "Looking forward to it, you know.",
+    "romaji": "tanoshimi ni shi te oru zo"
   }
 }
