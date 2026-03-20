@@ -286,5 +286,403 @@
       }
     ],
     "kanji": []
+  },
+  {
+    "time": "2026-03-20 03:53:54",
+    "japanese": "あれは塔が地面からせり出したのと同時に あのように光り始めたのじや",
+    "romaji": "are ha tou ga jimen kara seridashi ta no to douji ni ano you ni hikari hajime ta no ji ya",
+    "translation": "That's when it started glowing like that, the moment the tower shot out from the ground.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "あれ",
+        "reading": "are",
+        "meaning": "that",
+        "role": "pronoun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "は",
+        "reading": "ha",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "塔",
+        "reading": "tou",
+        "meaning": "tower",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "地面",
+        "reading": "jimen",
+        "meaning": "ground",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "から",
+        "reading": "kara",
+        "meaning": "from (e.g. time, place, numerical quanti",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "せり出し",
+        "reading": "seridashi",
+        "meaning": "to push (a thing) out",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "た",
+        "reading": "ta",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "の",
+        "reading": "no",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "と",
+        "reading": "to",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "同時",
+        "reading": "douji",
+        "meaning": "simultaneous",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "に",
+        "reading": "ni",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "あの",
+        "reading": "ano",
+        "meaning": "that",
+        "role": "pre-noun adj.",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "よう",
+        "reading": "you",
+        "meaning": "mess",
+        "role": "na-adjective",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "に",
+        "reading": "ni",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "光り",
+        "reading": "hikari",
+        "meaning": "to shine",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "始め",
+        "reading": "hajime",
+        "meaning": "to start",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "た",
+        "reading": "ta",
+        "meaning": "",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "の",
+        "reading": "no",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じ",
+        "reading": "ji",
+        "meaning": "child",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "や",
+        "reading": "ya",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "塔",
+        "reading": "tou",
+        "meaning": "pagoda",
+        "example": "とう",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "地",
+        "reading": "chi",
+        "meaning": "ground",
+        "example": "ち",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "面",
+        "reading": "men",
+        "meaning": "mask",
+        "example": "おもて",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "出",
+        "reading": "shutsu",
+        "meaning": "exit",
+        "example": "で",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "同",
+        "reading": "dou",
+        "meaning": "same",
+        "example": "どう",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "時",
+        "reading": "ji",
+        "meaning": "time",
+        "example": "とき",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "光",
+        "reading": "kou",
+        "meaning": "ray",
+        "example": "ひかり",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "始",
+        "reading": "shi",
+        "meaning": "commence",
+        "example": "",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
+  },
+  {
+    "time": "2026-03-20 03:54:11",
+    "japanese": "パラセールが欲しいのじゃろう？ お宝楽しみにしておるぞ",
+    "romaji": "para seeru ga hoshii no jarou ? o takara tanoshimi ni shi te oru zo",
+    "translation": "Want a Paraglider? I'm looking forward to it.",
+    "grammar_note": "",
+    "breakdown": [
+      {
+        "word": "パラ",
+        "reading": "para",
+        "meaning": "para-",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "セール",
+        "reading": "seeru",
+        "meaning": "sale",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "が",
+        "reading": "ga",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "欲しい",
+        "reading": "hoshii",
+        "meaning": "wanted",
+        "role": "adjective",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "の",
+        "reading": "no",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "じゃろう",
+        "reading": "jarou",
+        "meaning": "then",
+        "role": "aux. verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "？",
+        "reading": "?",
+        "meaning": "",
+        "role": "punctuation",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "お",
+        "reading": "o",
+        "meaning": "honorific/polite/humble prefix",
+        "role": "prefix",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "宝",
+        "reading": "takara",
+        "meaning": "treasure",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "楽しみ",
+        "reading": "tanoshimi",
+        "meaning": "enjoyment",
+        "role": "noun",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "に",
+        "reading": "ni",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "し",
+        "reading": "shi",
+        "meaning": "",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "て",
+        "reading": "te",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "おる",
+        "reading": "oru",
+        "meaning": "to be (of animate objects)",
+        "role": "verb",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "word": "ぞ",
+        "reading": "zo",
+        "meaning": "",
+        "role": "particle",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ],
+    "kanji": [
+      {
+        "kanji": "欲",
+        "reading": "yoku",
+        "meaning": "longing",
+        "example": "よく",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "宝",
+        "reading": "hou",
+        "meaning": "treasure",
+        "example": "たから",
+        "times_seen": 0,
+        "familiarity": "new"
+      },
+      {
+        "kanji": "楽",
+        "reading": "gaku",
+        "meaning": "music",
+        "example": "らく",
+        "times_seen": 0,
+        "familiarity": "new"
+      }
+    ]
   }
 ]

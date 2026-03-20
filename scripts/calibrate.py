@@ -16,6 +16,7 @@ import cv2
 import json
 import sys
 import numpy as np
+import platform
 
 # VIDEO_SOURCE = "http://192.168.1.107:8080/video"
 VIDEO_SOURCE = 0  # OpenCV webcam capture device index (default 0)
@@ -23,11 +24,14 @@ BOUNDS_FILE   = "bounds.json"
 
 def grab_frame(url):
     print(f"📡  Connecting to {url} ...")
+    cap = cv2.VideoCapture(source, cv2.CAP_DSHOW if platform.system() == "Windows" else cv2.CAP_AVFOUNDATION)
     cap = cv2.VideoCapture(url)
     if not cap.isOpened():
         print("❌  Cannot connect. Check VIDEO_SOURCE.")
         sys.exit(1)
-
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    cap.set(cv2.CAP_PROP_FPS, 30)
     # Drain a few frames so we get a fresh one
     for _ in range(5):
         cap.read()

@@ -38,5 +38,45 @@
     "japanese": "楽しみにしておるぞ",
     "translation": "Looking forward to it, you know.",
     "romaji": "tanoshimi ni shi te oru zo"
+  },
+  "チとそつくなるるし固まりとても不安定な状態で何か刺激を与えると変化するしいチュチュゼリー": {
+    "japanese": "チとそつくなるるし固まり とても不安定な状態で 何か刺激を与えると変化するしい チュチュゼリー",
+    "translation": "It's a bit unstable, and if you give it any kind of stimulus, it will change. It's called a Tutu Zeeri.",
+    "romaji": "chi to so tsuku na ruru shi katamari totemo fu antei na joutai de nan ka shigeki wo ataeru to henka suru shi i chuchu zerii"
+  },
+  "さあ早う光る祠からお宝を取つてこい": {
+    "japanese": "さあ早う光る祠からお宝を取つてこい",
+    "translation": "Come on, hurry up and get the treasure from the glowing shrine!",
+    "romaji": "saa hayou hikaru hokora kara o takara wo tori tsu te koi"
+  },
+  "さあ早う光る祠から宝を取つてこい": {
+    "japanese": "さあ早う光る祠から宝を取つてこい",
+    "translation": "Hurry up and get the treasure from the glowing shrine!",
+    "romaji": "saa hayou hikaru hokora kara takara wo tori tsu te koi"
+  },
+  "チとそつくなるるし固まりとても不安定な状態で何か刺激を与えると変化するらしいチュチュゼリー": {
+    "japanese": "チとそつくなるるし固まり とても不安定な状態で 何か刺激を与えると変化するらしい チュチュゼリー",
+    "translation": "It's a bit squishy and has become very unstable, and if you give it any kind of stimulus, it seems to change. Tute Tute Zeri.",
+    "romaji": "chi to so tsuku na ruru shi katamari totemo fu antei na joutai de nan ka shigeki wo ataeru to henka suru rashii chuchu zerii"
+  },
+  "オートセープオートセー": {
+    "japanese": "オートセープ オートセー",
+    "translation": "Auto-seep Auto-seep",
+    "romaji": "ootoseepu ooto see"
+  },
+  "あれは塔が地面からせり出したのと同時にあのように光り始めたのじや": {
+    "japanese": "あれは塔が地面からせり出したのと同時に あのように光り始めたのじや",
+    "translation": "That's when it started glowing like that, the moment the tower shot out from the ground.",
+    "romaji": "are ha tou ga jimen kara seridashi ta no to douji ni ano you ni hikari hajime ta no ji ya"
+  },
+  "ああいう場所にはたいがいお宝が眠っておるものよ": {
+    "japanese": "ああいう場所には たいがいお宝が眠っておるものよ",
+    "translation": "Places like that usually have treasure sleeping in them, you know.",
+    "romaji": "aa iu basho ni ha taigai o takara ga nemutsu te oru mono yo"
+  },
+  "パラセールが欲しいのじゃろう？お宝楽しみにしておるぞ": {
+    "japanese": "パラセールが欲しいのじゃろう？ お宝楽しみにしておるぞ",
+    "translation": "Want a Paraglider? I'm looking forward to it.",
+    "romaji": "para seeru ga hoshii no jarou ? o takara tanoshimi ni shi te oru zo"
   }
 }

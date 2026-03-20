@@ -143,6 +143,177 @@
       "total_recalls": 0,
       "first_seen": "2026-03-18",
       "last_seen": "2026-03-18"
+    },
+    "あれ": {
+      "reading": "are",
+      "meaning": "that",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "塔": {
+      "reading": "tou",
+      "meaning": "tower",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "地面": {
+      "reading": "jimen",
+      "meaning": "ground",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "から": {
+      "reading": "kara",
+      "meaning": "from (e.g. time, place, numerical quanti",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "せり出し": {
+      "reading": "seridashi",
+      "meaning": "to push (a thing) out",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "同時": {
+      "reading": "douji",
+      "meaning": "simultaneous",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "あの": {
+      "reading": "ano",
+      "meaning": "that",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "よう": {
+      "reading": "you",
+      "meaning": "mess",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "光り": {
+      "reading": "hikari",
+      "meaning": "to shine",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "始め": {
+      "reading": "hajime",
+      "meaning": "to start",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "じ": {
+      "reading": "ji",
+      "meaning": "child",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "パラ": {
+      "reading": "para",
+      "meaning": "para-",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "セール": {
+      "reading": "seeru",
+      "meaning": "sale",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "欲しい": {
+      "reading": "hoshii",
+      "meaning": "wanted",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "じゃろう": {
+      "reading": "jarou",
+      "meaning": "then",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "お": {
+      "reading": "o",
+      "meaning": "honorific/polite/humble prefix",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "宝": {
+      "reading": "takara",
+      "meaning": "treasure",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "楽しみ": {
+      "reading": "tanoshimi",
+      "meaning": "enjoyment",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
+    },
+    "おる": {
+      "reading": "oru",
+      "meaning": "to be (of animate objects)",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20",
+      "last_seen": "2026-03-20"
     }
   },
   "kanji": {
@@ -209,11 +380,99 @@
       "correct_recalls": 0,
       "total_recalls": 0,
       "first_seen": "2026-03-18"
+    },
+    "塔": {
+      "reading": "tou",
+      "meaning": "pagoda",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "地": {
+      "reading": "chi",
+      "meaning": "ground",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "面": {
+      "reading": "men",
+      "meaning": "mask",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "出": {
+      "reading": "shutsu",
+      "meaning": "exit",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "同": {
+      "reading": "dou",
+      "meaning": "same",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "時": {
+      "reading": "ji",
+      "meaning": "time",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "光": {
+      "reading": "kou",
+      "meaning": "ray",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "始": {
+      "reading": "shi",
+      "meaning": "commence",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "欲": {
+      "reading": "yoku",
+      "meaning": "longing",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "宝": {
+      "reading": "hou",
+      "meaning": "treasure",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
+    },
+    "楽": {
+      "reading": "gaku",
+      "meaning": "music",
+      "times_seen": 1,
+      "correct_recalls": 0,
+      "total_recalls": 0,
+      "first_seen": "2026-03-20"
     }
   },
   "stats": {
-    "total_lines": 3,
-    "new_today": 24,
-    "last_session": "2026-03-18"
+    "total_lines": 5,
+    "new_today": 30,
+    "last_session": "2026-03-20"
   }
 }

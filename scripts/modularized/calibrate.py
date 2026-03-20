@@ -23,11 +23,16 @@ BOUNDS_FILE  = "bounds.json"
 
 
 def grab_frame(source):
+    import platform
     print(f"📡  Connecting to {source} ...")
-    cap = cv2.VideoCapture(source)
+    backend = cv2.CAP_DSHOW if platform.system() == "Windows" else cv2.CAP_AVFOUNDATION
+    cap = cv2.VideoCapture(source, backend)
     if not cap.isOpened():
         print("❌  Cannot connect. Check VIDEO_SOURCE.")
         sys.exit(1)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    cap.set(cv2.CAP_PROP_FPS, 30)
     for _ in range(5):
         cap.read()
     ret, frame = cap.read()

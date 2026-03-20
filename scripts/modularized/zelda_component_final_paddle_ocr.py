@@ -9,7 +9,6 @@ os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 from paddleocr import PaddleOCR
 import cv2
 import numpy as np
-import tempfile
 import time
 import zelda_core
 
@@ -26,6 +25,7 @@ _paddle_ocr = PaddleOCR(
     use_doc_unwarping=False,
     use_textline_orientation=False,
     device="cpu",
+    enable_mkldnn=False,  # prevents MKLDNN/PIR crash
 )
 # PaddleOCR's predict() is not thread-safe on a shared model instance.
 # zelda_core runs OCR concurrently across regions — this lock serialises
@@ -71,18 +71,17 @@ def _postprocess_paddle(pairs: list) -> list:
 def paddle_ocr(frame):
     """Run PaddleOCR on a preprocessed BGR frame. Returns (japanese_text, elapsed_ms).
     Detections are sorted top-to-bottom by vertical centre before filtering so
-    reading order is always preserved regardless of how Paddle returns boxes."""
+    reading order is always preserved regardless of how Paddle returns boxes.
+
+    paddleocr 3.x API:
+      result = predict(img)  — accepts numpy array directly, no temp file needed.
+      Passing numpy array avoids Windows file locking and thread race conditions.
+      result is a list of dicts with rec_polys, rec_texts, rec_scores keys.
+    """
     t0 = time.perf_counter()
 
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-        tmp_path = f.name
-    cv2.imwrite(tmp_path, frame)
-
-    try:
-        with _paddle_lock:
-            result = _paddle_ocr.predict(tmp_path)
-    finally:
-        os.unlink(tmp_path)
+    with _paddle_lock:
+        result = _paddle_ocr.predict(frame)
 
     all_texts, all_scores, all_heights, all_centres = [], [], [], []
     for res in (result or []):

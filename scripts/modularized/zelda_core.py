@@ -22,11 +22,22 @@ import re
 import csv
 import os
 import tempfile
+import platform
 from datetime import date
 from flask import Flask, render_template_string, jsonify, Response, request as flask_request
 
-import Vision
-import Quartz
+# import Vision  # macOS only — OCR handled by registered backend
+# import Quartz  # macOS only
+
+def _open_capture(source):
+    """Open a VideoCapture with the correct backend for the current OS.
+    macOS uses AVFoundation; Windows uses DirectShow (CAP_DSHOW).
+    DirectShow is required on Windows to reliably open capture cards —
+    the default MSMF backend often returns black frames."""
+    if platform.system() == "Windows":
+        return cv2.VideoCapture(source, cv2.CAP_DSHOW)
+    else:
+        return cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
 
 # ── NLP libraries (romaji / segmentation / dictionary) ────────────────────────
 import fugashi
@@ -118,7 +129,7 @@ QUIZ_EVERY   = 10    # trigger a quiz after every N acknowledged lessons
 # row to ocr_training_log.csv every time Gate 4 passes — i.e. once per unique
 # stable dialogue line that will trigger an LLM call. One image per new line,
 # never duplicates. Both image save and CSV append share this single toggle.
-OCR_TRAINING_ENABLED = True
+OCR_TRAINING_ENABLED = False
 OCR_TRAINING_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_data")
 OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_training_log.csv")
 
@@ -126,7 +137,7 @@ OCR_TRAINING_CSV     = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
 # When enabled, appends one row to llm_metrics.csv for every frame that reaches
 # an actual LLM call (cache hits are excluded). Columns: timestamp, japanese,
 # preprocess_ms, per-region ocr_ms, total_ocr_ms, llm_ms, total_ms.
-METRICS_ENABLED = True
+METRICS_ENABLED = False
 
 # ── Brightness gate ───────────────────────────────────────────────────────────
 BRIGHTNESS_GATE_HIGH = 80.0
@@ -1199,10 +1210,15 @@ def frame_capture_thread():
     and writes the latest one to latest_frame under latest_frame_lock.
     ocr_loop reads from here and crops per-region each iteration."""
     global latest_frame
-    cap = cv2.VideoCapture(VIDEO_SOURCE)
+    cap = _open_capture(VIDEO_SOURCE)
     if not cap.isOpened():
-        print("⚠️  Frame capture thread: cannot open camera")
+        state["error"] = "Cannot connect to camera"
         return
+    # Set MJPG + 1080p — must be done before first read.
+    # MJPG allows higher resolutions on budget USB capture cards.
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    cap.set(cv2.CAP_PROP_FPS, 30)
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -1686,20 +1702,16 @@ def translation_loop(cap, regions, groups):
 
 
 def capture_loop():
-    """Top-level loop: loads bounds, opens the video source, then hands off
-    to translation_loop. Sets state["error"] and returns early if the
-    camera cannot be opened."""
+    """Top-level loop: loads bounds then hands off to translation_loop.
+    No sanity-check open here — on Windows (DSHOW) opening and releasing
+    the device before frame_capture_thread opens it causes a race where
+    DSHOW hasn't fully released by the time the second open fires, resulting
+    in a failed or black capture. frame_capture_thread is the sole owner."""
     regions, groups = load_bounds()
     state["bounds"]       = regions
-    state["groups_list"]  = list(groups.keys())  # ordered group names for UI
-    cap = cv2.VideoCapture(VIDEO_SOURCE)
-    if not cap.isOpened():
-        state["error"] = "Cannot connect to camera"
-        print("❌  Cannot connect. Check VIDEO_SOURCE.")
-        return
-    print("✅  Connected.")
-    translation_loop(cap, regions, groups)
-    cap.release()
+    state["groups_list"]  = list(groups.keys())
+    print("✅  Bounds loaded — starting pipeline.")
+    translation_loop(None, regions, groups)
 
 # ── Flask ──────────────────────────────────────────────────────────────────────
 
@@ -2921,6 +2933,11 @@ def unload_model():
 
 def main():
     """Entry point called by each variant after register_ocr_backend()."""
+    import signal
+    # Restore default SIGINT behaviour so Ctrl+C works on Windows.
+    # Flask overrides this when use_reloader=True; force it back.
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
     print("🎮  Zelda Translator")
     print(f"📱  Camera:  {VIDEO_SOURCE}")
     print(f"🤖  Model:   {TRANSLATION_MODEL}")
@@ -2931,7 +2948,7 @@ def main():
     load_translation_cache()
     threading.Thread(target=capture_loop, daemon=True).start()
     try:
-        app.run(host='0.0.0.0', port=5002, debug=False)
+        app.run(host='0.0.0.0', port=5002, debug=False, use_reloader=False)
     except KeyboardInterrupt:
         pass
     finally:
