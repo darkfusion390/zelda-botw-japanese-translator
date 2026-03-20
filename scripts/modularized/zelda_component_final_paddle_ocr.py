@@ -15,22 +15,30 @@ import zelda_core
 
 import threading
 
-# ── PaddleOCR initialisation ─────────────────────────────────────────────────
-# Loaded once at module level — model init takes ~2s, reusing avoids that cost
-# on every OCR call.
-_paddle_ocr = PaddleOCR(
-    text_detection_model_name="PP-OCRv5_mobile_det",
-    text_recognition_model_name="PP-OCRv5_mobile_rec",
-    use_doc_orientation_classify=False,
-    use_doc_unwarping=False,
-    use_textline_orientation=False,
-    device="cpu",
-    enable_mkldnn=False,  # prevents MKLDNN/PIR crash
-)
-# PaddleOCR's predict() is not thread-safe on a shared model instance.
-# zelda_core runs OCR concurrently across regions — this lock serialises
-# all calls into _paddle_ocr so only one runs at a time.
-_paddle_lock = threading.Lock()
+# ── PaddleOCR instance pool ───────────────────────────────────────────────────
+# One PaddleOCR instance per region, keyed by region name.
+# Built in __main__ after load_bounds() reveals the region names.
+# Each instance is fully independent — no shared state, no lock needed.
+# zelda_core's ThreadPoolExecutor can then run all regions truly in parallel.
+_ocr_pool: dict = {}
+
+def _build_ocr_pool(region_names: list):
+    """Create one PaddleOCR instance per region name. Called once at startup.
+    Model init takes ~2s per instance — this runs sequentially at launch so
+    startup is slower, but all subsequent OCR calls run without serialisation."""
+    pool = {}
+    for name in region_names:
+        print(f"🔧  Initialising OCR instance for region '{name}'...")
+        pool[name] = PaddleOCR(
+            text_detection_model_name="PP-OCRv5_mobile_det",
+            text_recognition_model_name="PP-OCRv5_mobile_rec",
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+            use_textline_orientation=False,
+            device="cpu",
+            enable_mkldnn=False,  # prevents MKLDNN/PIR crash
+        )
+    return pool
 # ── Postprocessing fixes ─────────────────────────────────────────────────────
 _EXACT_FIXES = {
     # Add zero-false-positive exact-string substitutions here as they are
@@ -68,10 +76,12 @@ def _postprocess_paddle(pairs: list) -> list:
             out.append((t, s))
     return out
 
-def paddle_ocr(frame):
+def paddle_ocr(frame, region_name="default"):
     """Run PaddleOCR on a preprocessed BGR frame. Returns (japanese_text, elapsed_ms).
-    Detections are sorted top-to-bottom by vertical centre before filtering so
-    reading order is always preserved regardless of how Paddle returns boxes.
+    Uses the instance assigned to region_name from _ocr_pool — each instance is
+    independent so concurrent calls from zelda_core's ThreadPoolExecutor run
+    without serialisation. Falls back to the first available instance if
+    region_name is not in the pool (e.g. during testing outside zelda_core).
 
     paddleocr 3.x API:
       result = predict(img)  — accepts numpy array directly, no temp file needed.
@@ -80,8 +90,8 @@ def paddle_ocr(frame):
     """
     t0 = time.perf_counter()
 
-    with _paddle_lock:
-        result = _paddle_ocr.predict(frame)
+    instance = _ocr_pool.get(region_name) or next(iter(_ocr_pool.values()))
+    result = instance.predict(frame)
 
     all_texts, all_scores, all_heights, all_centres = [], [], [], []
     for res in (result or []):
@@ -169,5 +179,9 @@ def preprocess_crop(crop):
 # ── Bounds loading ─────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
+    # Load region names before registering so the pool can be sized correctly.
+    # load_bounds() exits with a clear error if bounds.json is missing.
+    regions, _ = zelda_core.load_bounds()
+    _ocr_pool.update(_build_ocr_pool(list(regions.keys())))
     zelda_core.register_ocr_backend(do_ocr, preprocess_crop)
     zelda_core.main()

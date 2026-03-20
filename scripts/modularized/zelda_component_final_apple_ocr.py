@@ -13,7 +13,7 @@ import time
 import zelda_core
 
 
-def apple_vision_ocr(frame):
+def apple_vision_ocr(frame, region_name="default"):
     """Run Apple Vision OCR on a preprocessed BGR frame.
     Uses a bimodal bounding-box height split to separate furigana observations
     from main-text observations, keeping only main-text (plus small kana that

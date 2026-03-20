@@ -1360,7 +1360,7 @@ def ocr_loop(regions, groups):
                 _, cleaned = preprocessed[rname]
                 t = time.perf_counter()
                 try:
-                    jp_part, _ = _ocr_fn(cleaned)
+                    jp_part, _ = _ocr_fn(cleaned, rname)
                 except Exception as e:
                     print(f"⚠️  Vision error [{rname}]: {e}")
                     jp_part = ""
