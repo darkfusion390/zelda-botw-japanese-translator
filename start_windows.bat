@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: ══════════════════════════════════════════════════════════════════════════════
-:: start_windows.bat  —  Zelda BotW Translator  (Windows · PaddleOCR)
+:: start_windows.bat  —  Zelda BotW Translator  (Windows · Windows OCR)
 :: ══════════════════════════════════════════════════════════════════════════════
 :: Double-click or run from Command Prompt at the repo root:
 ::
@@ -11,24 +11,28 @@ setlocal enabledelayedexpansion
 :: Steps:
 ::   1. Check Python is on PATH
 ::   2. Install missing Python dependencies
-::   3. Check Ollama is installed
-::   4. Start Ollama serve if not already running
-::   5. Pull qwen3:8b if not already downloaded
-::   6. Run calibrate.py automatically if bounds.json is missing
-::   7. Launch zelda_component_final_paddle_ocr.py
+::   3. Check Japanese OCR language pack is installed
+::   4. Check Ollama is installed
+::   5. Start Ollama serve if not already running
+::   6. Pull qwen3:8b if not already downloaded
+::   7. Run calibrate.py automatically if bounds.json is missing
+::   8. Launch zelda_windows_ocr.py
 ::
 :: Prerequisites:
 ::   - Python 3.10+ on PATH  →  https://python.org
 ::     (tick "Add Python to PATH" during install)
 ::   - Ollama installed       →  https://ollama.com
+::   - Japanese language pack: Settings > Time & Language > Language & Region
+::     > Add Japanese  (Windows 11 includes OCR automatically)
 ::   - Camera connected and visible to OpenCV (device index 0 by default)
 ::
-:: GPU note:
-::   PaddleOCR runs on CPU. ROCm for RX 6000 series is not supported on
-::   Windows. See README for the DirectML/ONNX Runtime alternative.
+:: OCR note:
+::   Windows.Media.Ocr runs via PowerShell — no pip OCR packages needed.
+::   Uses Windows ML / DirectML, which will GPU-accelerate on DirectX 12
+::   compatible cards (RX 6800 included) automatically via the driver.
 :: ══════════════════════════════════════════════════════════════════════════════
 
-set COMPONENT=zelda_component_final_paddle_ocr.py
+set COMPONENT=zelda_windows_ocr.py
 set OLLAMA_MODEL=qwen3:8b
 
 :: Resolve repo root from script location
@@ -42,7 +46,7 @@ set CALIBRATE_SCRIPT=%MODULARIZED%\calibrate.py
 
 echo.
 echo ============================================
-echo   Zelda BotW Translator -- Windows Startup
+echo   Zelda BotW Translator -- Windows Startup (Windows OCR)
 echo ============================================
 
 :: ── Step 1: Python ────────────────────────────────────────────────────────────
@@ -62,7 +66,7 @@ for /f "tokens=*" %%v in ('python --version 2^>^&1') do echo [OK] %%v
 
 :: ── Step 2: Python dependencies ───────────────────────────────────────────────
 echo.
-echo [2/6] Checking Python dependencies...
+echo [2/7] Checking Python dependencies...
 
 :: Helper to check and install one package
 :: Usage: call :check_pkg pip_name import_name
@@ -94,8 +98,6 @@ call :check_pkg unidic-lite         unidic_lite
 call :check_pkg pykakasi            pykakasi
 call :check_pkg jamdict             jamdict
 call :check_pkg Pillow              PIL
-call :check_pkg paddlepaddle        paddle
-call :check_pkg paddleocr           paddleocr
 
 :: jamdict-data has no importable module — check via pip show
 pip show jamdict-data >nul 2>&1
@@ -112,11 +114,37 @@ if errorlevel 1 (
     echo   [OK] jamdict-data
 )
 
+:: Windows OCR uses PowerShell + Windows.Media.Ocr — no pip OCR packages needed.
+echo   [OK] OCR engine: Windows.Media.Ocr (built-in, no pip install required)
+
 echo [OK] All dependencies ready
+
+:: ── Step 3: Japanese OCR language pack ───────────────────────────────────────
+echo.
+echo [3/7] Checking Japanese OCR language pack...
+powershell -ExecutionPolicy Bypass -Command ^
+  "Add-Type -AssemblyName System.Runtime.WindowsRuntime; [Windows.Media.Ocr.OcrEngine, Windows.Media.Ocr, ContentType=WindowsRuntime] | Out-Null; [Windows.Globalization.Language, Windows.Globalization, ContentType=WindowsRuntime] | Out-Null; $lang = [Windows.Globalization.Language]::new('ja'); $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($lang); if ($null -eq $engine) { exit 1 } else { exit 0 }" >nul 2>&1
+if errorlevel 1 (
+    echo.
+    echo [WARNING] Japanese OCR language pack not detected.
+    echo.
+    echo           To install it:
+    echo           1. Open Settings
+    echo           2. Go to Time ^& Language ^> Language ^& Region
+    echo           3. Click "Add a language" and add Japanese
+    echo           4. Windows 11 includes OCR automatically with the language pack
+    echo           5. Re-run this script after installing
+    echo.
+    echo           The translator will not produce output until the pack is installed.
+    echo.
+    pause
+) else (
+    echo [OK] Japanese OCR language pack found
+)
 
 :: ── Step 3: Ollama ────────────────────────────────────────────────────────────
 echo.
-echo [3/6] Checking Ollama...
+echo [4/7] Checking Ollama...
 ollama --version >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Ollama not found.
@@ -130,7 +158,7 @@ for /f "tokens=*" %%v in ('ollama --version 2^>^&1') do echo [OK] %%v
 
 :: ── Step 4: Ollama server ─────────────────────────────────────────────────────
 echo.
-echo [4/6] Starting Ollama server...
+echo [5/7] Starting Ollama server...
 
 :: Check if already running
 curl -s http://localhost:11434/api/tags >nul 2>&1
@@ -167,7 +195,7 @@ if "!OLLAMA_STARTED!"=="1" (
 
 :: ── Step 5: Pull model ────────────────────────────────────────────────────────
 echo.
-echo [5/6] Checking model %OLLAMA_MODEL%...
+echo [6/7] Checking model %OLLAMA_MODEL%...
 echo   First run will download ~5GB -- subsequent runs skip download
 ollama pull %OLLAMA_MODEL%
 if errorlevel 1 (
@@ -180,7 +208,7 @@ echo [OK] %OLLAMA_MODEL% ready
 
 :: ── Step 6: bounds.json — run calibrate.py if missing ────────────────────────
 echo.
-echo [6/6] Checking bounds.json...
+echo [7/7] Checking bounds.json...
 if exist "%BOUNDS_FILE%" (
     echo [OK] bounds.json found
     goto :bounds_ready

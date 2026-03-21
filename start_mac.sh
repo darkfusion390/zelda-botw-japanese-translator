@@ -30,14 +30,14 @@ NC='\033[0m'
 # ── Paths (all relative to repo root) ────────────────────────────────────────
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULARIZED="$REPO_ROOT/scripts/modularized"
-COMPONENT="zelda_component_final_apple_ocr.py"
+COMPONENT="zelda_apple_ocr.py"
 TRANSLATOR_SCRIPT="$MODULARIZED/$COMPONENT"
 BOUNDS_FILE="$MODULARIZED/bounds.json"
 CALIBRATE_SCRIPT="$MODULARIZED/calibrate.py"
 OLLAMA_MODEL="qwen3:8b"
 
 echo ""
-echo -e "${BOLD}${CYAN}🎮  Zelda BotW Translator — macOS Startup${NC}"
+echo -e "${BOLD}${CYAN}🎮  Zelda BotW Translator — macOS Startup (Apple Vision OCR)${NC}"
 echo "════════════════════════════════════════════"
 
 # ── Step 1: Python ────────────────────────────────────────────────────────────
@@ -67,7 +67,6 @@ PACKAGES=(
     "unidic-lite:unidic_lite"
     "pykakasi:pykakasi"
     "jamdict:jamdict"
-    "Pillow:PIL"
 )
 
 MISSING=()
