@@ -46,14 +46,14 @@ from datetime import datetime
 
 DEFAULT_PROCESSORS = [
     "processor_apple",
-    # "processor_paddle",
+    "processor_paddle",
     "processor_rapid_a",
     "processor_rapid_b",
     "processor_rapid_c",
     "processor_manga_ocr",
     "processor_manga_ocr_colour",
     "processor_easy_ocr",
-    "processor_windows_ocr",
+    "processor_windows_ocr"
 ]
 
 IMAGE_EXTS = ("*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp")
