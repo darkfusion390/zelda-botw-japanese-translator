@@ -5,4 +5,5 @@
 .Spotlight-V100
 .Trashes
 .vscode
-scripts/modularized/__pycache__/zelda_core.cpython-313.pyc
+*.pyc
+venv
